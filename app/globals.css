@@ -1,0 +1,324 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode — Premium Enterprise Palette */
+    --background: 210 40% 99%;
+    --foreground: 215 28% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 15%;
+    --primary: 210 85% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 92%;
+    --secondary-foreground: 215 28% 15%;
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 14% 50%;
+    --accent: 188 78% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 90%;
+    --input: 215 20% 90%;
+    --ring: 210 85% 32%;
+    --chart-1: 210 85% 32%;
+    --chart-2: 188 78% 40%;
+    --chart-3: 160 60% 42%;
+    --chart-4: 43 74% 60%;
+    --chart-5: 27 87% 60%;
+    --radius: 0.75rem;
+
+    --success: 160 70% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Brand tokens */
+    --navy: 215 50% 12%;
+    --plumbing-blue: 210 85% 32%;
+    --aqua: 188 78% 40%;
+
+    /* Premium surface tokens */
+    --surface-1: 0 0% 100%;
+    --surface-2: 215 20% 97%;
+    --surface-3: 215 20% 94%;
+  }
+
+  .dark {
+    --background: 215 40% 6%;
+    --foreground: 210 40% 96%;
+    --card: 215 35% 9%;
+    --card-foreground: 210 40% 96%;
+    --popover: 215 35% 9%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 210 80% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 25% 14%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 215 25% 14%;
+    --muted-foreground: 215 18% 62%;
+    --accent: 188 70% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 25% 16%;
+    --input: 215 25% 16%;
+    --ring: 210 80% 48%;
+    --chart-1: 210 80% 48%;
+    --chart-2: 188 70% 48%;
+    --chart-3: 160 50% 42%;
+    --chart-4: 43 74% 55%;
+    --chart-5: 27 80% 55%;
+
+    --success: 160 55% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 80% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --navy: 215 40% 6%;
+    --plumbing-blue: 210 80% 48%;
+    --aqua: 188 70% 48%;
+
+    --surface-1: 215 35% 9%;
+    --surface-2: 215 30% 12%;
+    --surface-3: 215 25% 15%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  /* Premium heading defaults */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .container-px {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  .section-py {
+    @apply py-16 sm:py-20 lg:py-28;
+  }
+
+  /* Premium gradients */
+  .hero-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(215 50% 12%) 0%,
+      hsl(210 85% 32%) 50%,
+      hsl(188 78% 40%) 100%
+    );
+  }
+  .navy-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(215 50% 12%) 0%,
+      hsl(215 40% 18%) 100%
+    );
+  }
+  .premium-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--accent)) 100%
+    );
+  }
+  .premium-gradient-subtle {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.05) 0%,
+      hsl(var(--accent) / 0.05) 100%
+    );
+  }
+
+  /* Glass surfaces */
+  .glass {
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+  .glass-dark {
+    background: hsl(215 40% 6% / 0.82);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+  .glass-card {
+    background: hsl(var(--card) / 0.85);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+  }
+
+  /* Text shadows */
+  .text-shadow-lg {
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  }
+  .text-shadow-sm {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Premium shadow system */
+  .premium-shadow {
+    box-shadow:
+      0 1px 2px -1px hsl(215 25% 15% / 0.06),
+      0 4px 12px -4px hsl(215 25% 15% / 0.08),
+      0 1px 3px -1px hsl(215 25% 15% / 0.04);
+  }
+  .premium-shadow-sm {
+    box-shadow:
+      0 1px 2px -1px hsl(215 25% 15% / 0.05),
+      0 2px 6px -2px hsl(215 25% 15% / 0.06);
+  }
+  .premium-shadow-lg {
+    box-shadow:
+      0 2px 4px -2px hsl(215 25% 15% / 0.06),
+      0 12px 32px -8px hsl(215 25% 15% / 0.12),
+      0 4px 12px -4px hsl(215 25% 15% / 0.06);
+  }
+  .premium-shadow-xl {
+    box-shadow:
+      0 4px 8px -2px hsl(215 25% 15% / 0.08),
+      0 24px 48px -12px hsl(215 25% 15% / 0.16),
+      0 8px 20px -6px hsl(215 25% 15% / 0.08);
+  }
+  .premium-shadow-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.1),
+      0 4px 16px -4px hsl(var(--primary) / 0.25);
+  }
+
+  /* Premium card hover */
+  .card-hover {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Premium border */
+  .border-premium {
+    border: 1px solid hsl(var(--border) / 0.6);
+  }
+
+  /* Grid pattern background */
+  .grid-pattern {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.4) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .dot-pattern {
+    background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+/* Theme transition — scoped to color-related properties only, applied transiently during toggle */
+html.theme-transition,
+html.theme-transition body,
+html.theme-transition header,
+html.theme-transition footer,
+html.theme-transition section,
+html.theme-transition nav,
+html.theme-transition main,
+html.theme-transition aside,
+html.theme-transition div,
+html.theme-transition span,
+html.theme-transition a,
+html.theme-transition p,
+html.theme-transition h1,
+html.theme-transition h2,
+html.theme-transition h3,
+html.theme-transition h4,
+html.theme-transition h5,
+html.theme-transition h6,
+html.theme-transition ul,
+html.theme-transition li,
+html.theme-transition button,
+html.theme-transition input,
+html.theme-transition textarea,
+html.theme-transition label,
+html.theme-transition svg,
+html.theme-transition table,
+html.theme-transition th,
+html.theme-transition td,
+html.theme-transition article {
+  transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              fill 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition * {
+    transition: none !important;
+  }
+}
+
+/* Hide scrollbar for horizontal scroll areas */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom scrollbar — premium */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Focus visible — premium ring */
+*:focus-visible {
+  outline: none;
+}
