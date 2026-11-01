@@ -122,9 +122,21 @@ const LOCAL_STORAGE_HELPFUL_VOTES_KEY = 'sohan_review_helpful_votes_v2';
 
 function isLegacyDummyReviewRecord(r?: Partial<VerifiedWorkReview> | null): boolean {
   if (!r) return true;
+  const bookingId = (r.bookingId || '').trim().toUpperCase();
+  const customerName = (r.customerName || '').trim();
+  const comment = (r.comment || '').trim();
+
+  if (!bookingId || bookingId.length < 4 || !customerName || !comment) {
+    return true;
+  }
+
+  if (r.verifiedWorkOrder === false) {
+    return true;
+  }
+
   if (
-    r.bookingId?.trim().toUpperCase() === 'SP-20261014-054E7D' &&
-    (r.customerName?.trim().toLowerCase() === 'subhajit jana' ||
+    bookingId === 'SP-20261014-054E7D' &&
+    (customerName.toLowerCase() === 'subhajit jana' ||
       (r.headline || '')
         .trim()
         .toLowerCase()
@@ -271,7 +283,7 @@ function mergeReviewsById(
 
   for (const list of lists) {
     for (const rawItem of list) {
-      if (!rawItem || !rawItem.bookingId) continue;
+      if (isLegacyDummyReviewRecord(rawItem)) continue;
       const item = normalizeReviewRecord(rawItem);
       const normalizedBookingId = item.bookingId.trim().toUpperCase();
       const existing = byKey.get(normalizedBookingId);

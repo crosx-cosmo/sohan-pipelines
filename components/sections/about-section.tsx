@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
-import { Award, Users, Clock, ThumbsUp, Wrench, Shield, Heart, Star, ChevronDown, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Award, Users, Clock, Wrench, Shield, Heart, Star, ChevronDown, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { businessInfo } from '@/lib/business-info';
 

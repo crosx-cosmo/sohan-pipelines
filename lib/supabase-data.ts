@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabase';
-import { getSparePartImageUrl } from '@/lib/spare-parts-mapping';
+import {
+  SPARE_PARTS_BUCKET_NAME,
+  getSparePartImageUrl,
+} from '@/lib/spare-parts-mapping';
 import {
   Wrench,
   Droplets,
@@ -20,6 +23,7 @@ import {
  * - slug: text (not null)
  * - description: text
  * - price: numeric / integer
+ * - pricing_label: text
  * - duration: text
  * - active: boolean (default true)
  * - created_at: timestamptz
@@ -30,9 +34,12 @@ export interface DbService {
   slug: string;
   description: string | null;
   price: number;
+  pricing_label?: string | null;
   duration: string | null;
   active: boolean;
   created_at: string;
+  image_path?: string | null;
+  image_url?: string | null;
 }
 
 /**
@@ -55,48 +62,133 @@ export interface DbServiceArea {
   pincode: string | null;
   active: boolean;
   created_at: string;
+  image_path?: string | null;
+  image_url?: string | null;
 }
+
+export type LiveServiceArea = DbServiceArea;
 
 export function getServiceIcon(slugOrName: string): LucideIcon {
   const s = (slugOrName || '').toLowerCase();
   if (s.includes('drain') || s.includes('sewer')) return Droplets;
-  if (s.includes('bath') || s.includes('shower') || s.includes('toilet') || s.includes('sanitary')) return Bath;
-  if (s.includes('tank') || s.includes('booster') || s.includes('pump')) return Gauge;
-  if (s.includes('leak') || s.includes('detect') || s.includes('waterproof')) return AlertTriangle;
+  if (
+    s.includes('bath') ||
+    s.includes('shower') ||
+    s.includes('toilet') ||
+    s.includes('sanitary')
+  )
+    return Bath;
+  if (s.includes('tank') || s.includes('booster') || s.includes('pump'))
+    return Gauge;
+  if (s.includes('leak') || s.includes('detect') || s.includes('waterproof'))
+    return AlertTriangle;
   if (s.includes('geyser') || s.includes('heater')) return Flame;
   if (s.includes('commercial') || s.includes('industrial')) return Building2;
-  if (s.includes('kitchen') || s.includes('ro') || s.includes('purifier')) return ShowerHead;
-  if (s.includes('fitting') || s.includes('repiping')) return Pipette;
+  if (s.includes('kitchen') || s.includes('ro') || s.includes('purifier'))
+    return ShowerHead;
+  if (s.includes('fitting') || s.includes('repiping') || s.includes('pipe'))
+    return Pipette;
   return Wrench;
 }
 
-export function getServiceCategory(slugOrName: string): 'residential' | 'commercial' | 'emergency' | 'installation' | 'maintenance' {
+export function getServiceCategory(
+  slugOrName: string
+):
+  | 'residential'
+  | 'commercial'
+  | 'emergency'
+  | 'installation'
+  | 'maintenance' {
   const s = (slugOrName || '').toLowerCase();
-  if (s.includes('emergency') || s.includes('urgent') || s.includes('24/7')) return 'emergency';
-  if (s.includes('commercial') || s.includes('industrial') || s.includes('complex')) return 'commercial';
-  if (s.includes('install') || s.includes('setup') || s.includes('fitting')) return 'installation';
-  if (s.includes('drain') || s.includes('clean') || s.includes('repair') || s.includes('maintenance')) return 'maintenance';
+  if (s.includes('emergency') || s.includes('urgent') || s.includes('24/7'))
+    return 'emergency';
+  if (
+    s.includes('commercial') ||
+    s.includes('industrial') ||
+    s.includes('complex')
+  )
+    return 'commercial';
+  if (s.includes('install') || s.includes('setup') || s.includes('fitting'))
+    return 'installation';
+  if (
+    s.includes('drain') ||
+    s.includes('clean') ||
+    s.includes('repair') ||
+    s.includes('maintenance')
+  )
+    return 'maintenance';
   return 'residential';
 }
 
 export function getServiceFeatures(slugOrName: string): string[] {
   const s = (slugOrName || '').toLowerCase();
   if (s.includes('pipe') || s.includes('fitting')) {
-    return ['CPVC, UPVC, Copper & PEX joints', 'Acoustic leak pinpointing', 'Hydrostatic pressure tested', 'Anti-corrosion solvent welds'];
+    return [
+      'CPVC, UPVC, Copper & PEX joints',
+      'Acoustic leak pinpointing',
+      'Hydrostatic pressure tested',
+      'Anti-corrosion solvent welds',
+    ];
   }
   if (s.includes('drain') || s.includes('sewer')) {
-    return ['High-pressure hydro jetting', 'Motorized auger cleanouts', 'Gully trap declogging', 'Odor & bio-film treatment'];
+    return [
+      'High-pressure hydro jetting',
+      'Motorized auger cleanouts',
+      'Gully trap declogging',
+      'Odor & bio-film treatment',
+    ];
   }
-  if (s.includes('bath') || s.includes('sanitary')) {
-    return ['Concealed diverters & mixers', 'Wall-hung commode mounts', 'Retiling water barrier seal', 'Zero-drip warranty'];
+  if (
+    s.includes('bath') ||
+    s.includes('sanitary') ||
+    s.includes('toilet') ||
+    s.includes('santanu')
+  ) {
+    return [
+      'Concealed diverters & flush valves',
+      'Wall-hung & floor commode mounts',
+      'Waterproof sanitary seal',
+      'Zero-drip joint warranty',
+    ];
   }
-  if (s.includes('tank') || s.includes('pump')) {
-    return ['Overhead storage tank piping', 'Automatic booster manifold', 'Non-return valve assembly', 'Full drainage bypass setup'];
+  if (s.includes('geyser') || s.includes('heater')) {
+    return [
+      'High-pressure braided hot/cold lines',
+      'PRV safety valve calibration',
+      'Scale & sediment flushing',
+      'Leak-free brass angle valves',
+    ];
+  }
+  if (s.includes('faucet') || s.includes('tap')) {
+    return [
+      'Quarter-turn ceramic disc alignment',
+      'PTFE thread seal & pressure test',
+      'Wall mixer & diverter fitting',
+      'Zero-scratch chrome installation',
+    ];
   }
   if (s.includes('leak')) {
-    return ['Electronic acoustic stethoscope', 'Thermal slab differential scan', 'Zero destructive demo digging', 'Immediate localized repair'];
+    return [
+      'Non-destructive acoustic pinpointing',
+      'Concealed wall & slab diagnostics',
+      'Damaged joint replacement',
+      'Post-repair pressure verification',
+    ];
   }
-  return ['Master plumber workmanship', 'Upfront pricing approval', 'Standard hardware compatibility', '100% satisfaction guarantee'];
+  if (s.includes('tank') || s.includes('pump')) {
+    return [
+      'Overhead storage tank piping',
+      'Automatic booster manifold',
+      'Non-return valve assembly',
+      'Full drainage bypass setup',
+    ];
+  }
+  return [
+    'Master plumber workmanship',
+    'Upfront pricing approval',
+    'Standard hardware compatibility',
+    '100% satisfaction guarantee',
+  ];
 }
 
 interface CacheEntry<T> {
@@ -104,13 +196,215 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 60 * 1000;
+
+/**
+ * Strictly separated ID-based catalog image maps from the "spare-part-images" bucket:
+ * - `servicesById`: populated EXCLUSIVELY from `catalog-services` folders, keyed by Service ID
+ * - `areasById`: populated EXCLUSIVELY from `catalog-service-areas` folders, keyed by Service Area ID
+ * - NEVER reads or uses any image from the `parts` folder.
+ * - NEVER sets any default or fallback image. Unmatched records strictly get `null`.
+ */
+interface BucketCatalogMaps {
+  servicesById: Record<string, string>;
+  areasById: Record<string, string>;
+}
+
+let catalogBucketCache: CacheEntry<BucketCatalogMaps> | null = null;
+let inflightCatalogBucketPromise: Promise<BucketCatalogMaps> | null = null;
+
+/**
+ * Builds a public URL for an object strictly inside `catalog-services` or `catalog-service-areas`
+ * in the "spare-part-images" bucket, appending a version parameter so updated images
+ * with the same filename reflect immediately.
+ */
+function buildCatalogObjectPublicUrl(
+  fullObjectPath: string,
+  versionTag?: string | null
+): string | null {
+  const { data } = supabase.storage
+    .from(SPARE_PARTS_BUCKET_NAME)
+    .getPublicUrl(fullObjectPath);
+
+  if (!data?.publicUrl) return null;
+  if (!versionTag) return data.publicUrl;
+
+  const separator = data.publicUrl.includes('?') ? '&' : '?';
+  return `${data.publicUrl}${separator}v=${encodeURIComponent(versionTag)}`;
+}
+
+/**
+ * Inspects the existing "spare-part-images" public Supabase Storage bucket:
+ * 1. Services images are fetched EXCLUSIVELY from `catalog-services/` by `service.id`.
+ * 2. Service Areas images are fetched EXCLUSIVELY from `catalog-service-areas/` by `area.id`.
+ * 3. Strictly ignores the `parts/` folder so Spare Parts photographs are never used for
+ *    Services or Service Areas.
+ * 4. Never assigns any fallback or default image.
+ */
+async function fetchBucketCatalogImageMaps(
+  forceRefresh = false
+): Promise<BucketCatalogMaps> {
+  if (
+    !forceRefresh &&
+    catalogBucketCache &&
+    Date.now() - catalogBucketCache.timestamp < CACHE_TTL_MS
+  ) {
+    return catalogBucketCache.data;
+  }
+
+  if (inflightCatalogBucketPromise) {
+    return inflightCatalogBucketPromise;
+  }
+
+  inflightCatalogBucketPromise = (async () => {
+    const servicesById: Record<string, string> = {};
+    const areasById: Record<string, string> = {};
+
+    try {
+      const { data: rootItems } = await supabase.storage
+        .from(SPARE_PARTS_BUCKET_NAME)
+        .list('', { limit: 100 });
+
+      // Discover root and any non-parts parent folders (e.g. admin UUID namespace folders)
+      const candidatePrefixes = new Set<string>(['']);
+      for (const item of rootItems ?? []) {
+        if (
+          !item.id &&
+          item.name &&
+          item.name !== 'parts' &&
+          item.name !== 'catalog-services' &&
+          item.name !== 'catalog-service-areas'
+        ) {
+          candidatePrefixes.add(`${item.name}/`);
+        }
+      }
+
+      for (const prefix of candidatePrefixes) {
+        // 1. EXCLUSIVELY list "catalog-services" for Services (keyed strictly by service ID filename)
+        const servicesFolderPath = `${prefix}catalog-services`;
+        const { data: serviceFiles } = await supabase.storage
+          .from(SPARE_PARTS_BUCKET_NAME)
+          .list(servicesFolderPath, { limit: 100 });
+
+        for (const file of serviceFiles ?? []) {
+          if (!file.name || file.name.startsWith('.') || !file.id) continue;
+          const fileIdKey = file.name.replace(/\.[^/.]+$/, '').trim().toLowerCase();
+          const fullObjectPath = `${servicesFolderPath}/${file.name}`;
+          const versionTag =
+            file.updated_at || file.version || file.id || undefined;
+          const publicUrl = buildCatalogObjectPublicUrl(
+            fullObjectPath,
+            versionTag
+          );
+          if (publicUrl && fileIdKey) {
+            servicesById[fileIdKey] = publicUrl;
+          }
+        }
+
+        // 2. EXCLUSIVELY list "catalog-service-areas" for Service Areas (keyed strictly by area ID filename)
+        const areasFolderPath = `${prefix}catalog-service-areas`;
+        const { data: areaFiles } = await supabase.storage
+          .from(SPARE_PARTS_BUCKET_NAME)
+          .list(areasFolderPath, { limit: 100 });
+
+        for (const file of areaFiles ?? []) {
+          if (!file.name || file.name.startsWith('.') || !file.id) continue;
+          const fileIdKey = file.name.replace(/\.[^/.]+$/, '').trim().toLowerCase();
+          const fullObjectPath = `${areasFolderPath}/${file.name}`;
+          const versionTag =
+            file.updated_at || file.version || file.id || undefined;
+          const publicUrl = buildCatalogObjectPublicUrl(
+            fullObjectPath,
+            versionTag
+          );
+          if (publicUrl && fileIdKey) {
+            areasById[fileIdKey] = publicUrl;
+          }
+        }
+      }
+    } catch {
+      // If storage listing fails, maps remain empty so cards render clean empty states
+    } finally {
+      inflightCatalogBucketPromise = null;
+    }
+
+    const result: BucketCatalogMaps = {
+      servicesById,
+      areasById,
+    };
+
+    catalogBucketCache = {
+      data: result,
+      timestamp: Date.now(),
+    };
+
+    return result;
+  })();
+
+  return inflightCatalogBucketPromise;
+}
+
+/**
+ * Resolves a service's image strictly by `service.id` from `catalog-services` in "spare-part-images".
+ * - Returns `null` if this specific `service.id` has no image in `catalog-services`.
+ * - Never uses any fallback image.
+ */
+function resolveServiceImageFromBucket(
+  service: DbService,
+  bucketMaps: BucketCatalogMaps
+): string | null {
+  const idKey = (service.id || '').trim().toLowerCase();
+  if (!idKey) return null;
+
+  if (bucketMaps.servicesById[idKey]) {
+    return bucketMaps.servicesById[idKey];
+  }
+
+  for (const [key, url] of Object.entries(bucketMaps.servicesById)) {
+    if (key.startsWith(`${idKey}-`) || key.startsWith(`${idKey}_`)) {
+      return url;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a service area's image strictly by `area.id` from `catalog-service-areas` in "spare-part-images".
+ * - Returns `null` if this specific `area.id` has no image in `catalog-service-areas`.
+ * - Never uses any fallback image.
+ */
+function resolveServiceAreaImageFromBucket(
+  area: DbServiceArea,
+  bucketMaps: BucketCatalogMaps
+): string | null {
+  const idKey = (area.id || '').trim().toLowerCase();
+  if (!idKey) return null;
+
+  if (bucketMaps.areasById[idKey]) {
+    return bucketMaps.areasById[idKey];
+  }
+
+  for (const [key, url] of Object.entries(bucketMaps.areasById)) {
+    if (key.startsWith(`${idKey}-`) || key.startsWith(`${idKey}_`)) {
+      return url;
+    }
+  }
+
+  return null;
+}
 
 let servicesCache: CacheEntry<DbService[]> | null = null;
-let inflightServicesPromise: Promise<{ data: DbService[]; error: string | null }> | null = null;
+let inflightServicesPromise: Promise<{
+  data: DbService[];
+  error: string | null;
+}> | null = null;
 
 let areasCache: CacheEntry<DbServiceArea[]> | null = null;
-let inflightAreasPromise: Promise<{ data: DbServiceArea[]; error: string | null }> | null = null;
+let inflightAreasPromise: Promise<{
+  data: DbServiceArea[];
+  error: string | null;
+}> | null = null;
 
 let sparePartsCache: CacheEntry<DbSparePart[]> | null = null;
 let inflightSparePartsPromise: Promise<{
@@ -121,34 +415,28 @@ let inflightSparePartsPromise: Promise<{
 }> | null = null;
 
 export function getCachedServices(): DbService[] | null {
-  if (servicesCache && Date.now() - servicesCache.timestamp < CACHE_TTL_MS) {
-    return servicesCache.data;
-  }
   return null;
 }
 
 export function getCachedServiceAreas(): DbServiceArea[] | null {
-  if (areasCache && Date.now() - areasCache.timestamp < CACHE_TTL_MS) {
-    return areasCache.data;
-  }
   return null;
 }
 
 export function getCachedSpareParts(): DbSparePart[] | null {
-  if (
-    sparePartsCache &&
-    sparePartsCache.data.length > 0 &&
-    Date.now() - sparePartsCache.timestamp < CACHE_TTL_MS
-  ) {
-    return sparePartsCache.data;
-  }
   return null;
 }
 
-export async function fetchLiveServices(options: { forceRefresh?: boolean } = {}): Promise<{ data: DbService[]; error: string | null }> {
+export async function fetchLiveServices(
+  options: { forceRefresh?: boolean } = {}
+): Promise<{ data: DbService[]; error: string | null }> {
   const { forceRefresh = false } = options;
 
-  if (!forceRefresh && servicesCache && servicesCache.data.length > 0 && Date.now() - servicesCache.timestamp < CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    servicesCache &&
+    servicesCache.data.length > 0 &&
+    Date.now() - servicesCache.timestamp < CACHE_TTL_MS
+  ) {
     return { data: servicesCache.data, error: null };
   }
 
@@ -158,17 +446,34 @@ export async function fetchLiveServices(options: { forceRefresh?: boolean } = {}
 
   inflightServicesPromise = (async () => {
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('id, name, slug, description, price, duration, active, created_at')
-        .eq('active', true)
-        .order('price', { ascending: true });
+      const [{ data, error }, bucketMaps] = await Promise.all([
+        supabase
+          .from('services')
+          .select(
+            'id, name, slug, description, price, pricing_label, duration, active, created_at'
+          )
+          .eq('active', true)
+          .order('price', { ascending: true }),
+        fetchBucketCatalogImageMaps(forceRefresh),
+      ]);
 
       if (error) {
         return { data: servicesCache?.data ?? [], error: error.message };
       }
 
-      const freshData = (data as DbService[]) ?? [];
+      const freshData = ((data as DbService[]) ?? [])
+        .map((row) => ({
+          ...row,
+          image_url: resolveServiceImageFromBucket(row, bucketMaps),
+        }))
+        // Prioritize services that have an image matched by their ID, then order by price ascending
+        .sort((a, b) => {
+          const aHasImg = a.image_url ? 1 : 0;
+          const bHasImg = b.image_url ? 1 : 0;
+          if (aHasImg !== bHasImg) return bHasImg - aHasImg;
+          return (Number(a.price) || 0) - (Number(b.price) || 0);
+        });
+
       if (freshData.length > 0) {
         servicesCache = {
           data: freshData,
@@ -179,7 +484,10 @@ export async function fetchLiveServices(options: { forceRefresh?: boolean } = {}
     } catch (err) {
       return {
         data: servicesCache?.data ?? [],
-        error: err instanceof Error ? err.message : 'Failed to connect to Supabase services',
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Unable to load services catalogue',
       };
     } finally {
       inflightServicesPromise = null;
@@ -447,7 +755,10 @@ const REGIONAL_PINCODE_DIRECTORY: Record<
   },
 };
 
-function enrichDbServiceArea(row: DbServiceArea): DbServiceArea {
+function enrichDbServiceArea(
+  row: DbServiceArea,
+  bucketMaps: BucketCatalogMaps
+): DbServiceArea {
   const cleanLocality = (row.locality || '').trim();
   const key = cleanLocality.toLowerCase();
   const matched =
@@ -476,7 +787,7 @@ function enrichDbServiceArea(row: DbServiceArea): DbServiceArea {
       ? String(row.subdivision).trim()
       : matched?.subdivision || null;
 
-  return {
+  const enriched: DbServiceArea = {
     ...row,
     locality: cleanLocality,
     pincode: resolvedPincode,
@@ -484,12 +795,22 @@ function enrichDbServiceArea(row: DbServiceArea): DbServiceArea {
     block: resolvedBlock,
     subdivision: resolvedSubdivision,
   };
+
+  enriched.image_url = resolveServiceAreaImageFromBucket(enriched, bucketMaps);
+  return enriched;
 }
 
-export async function fetchLiveServiceAreas(options: { forceRefresh?: boolean } = {}): Promise<{ data: DbServiceArea[]; error: string | null }> {
+export async function fetchLiveServiceAreas(
+  options: { forceRefresh?: boolean } = {}
+): Promise<{ data: DbServiceArea[]; error: string | null }> {
   const { forceRefresh = false } = options;
 
-  if (!forceRefresh && areasCache && areasCache.data.length > 0 && Date.now() - areasCache.timestamp < CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    areasCache &&
+    areasCache.data.length > 0 &&
+    Date.now() - areasCache.timestamp < CACHE_TTL_MS
+  ) {
     return { data: areasCache.data, error: null };
   }
 
@@ -499,18 +820,25 @@ export async function fetchLiveServiceAreas(options: { forceRefresh?: boolean } 
 
   inflightAreasPromise = (async () => {
     try {
-      const { data, error } = await supabase
-        .from('service_areas')
-        .select('id, district, subdivision, block, locality, pincode, active, created_at')
-        .eq('active', true)
-        .order('district', { ascending: true })
-        .order('locality', { ascending: true });
+      const [{ data, error }, bucketMaps] = await Promise.all([
+        supabase
+          .from('service_areas')
+          .select(
+            'id, district, subdivision, block, locality, pincode, active, created_at'
+          )
+          .eq('active', true)
+          .order('district', { ascending: true })
+          .order('locality', { ascending: true }),
+        fetchBucketCatalogImageMaps(forceRefresh),
+      ]);
 
       if (error) {
         return { data: areasCache?.data ?? [], error: error.message };
       }
 
-      const freshData = ((data as DbServiceArea[]) ?? []).map(enrichDbServiceArea);
+      const freshData = ((data as DbServiceArea[]) ?? []).map((row) =>
+        enrichDbServiceArea(row, bucketMaps)
+      );
       if (freshData.length > 0) {
         areasCache = {
           data: freshData,
@@ -523,7 +851,10 @@ export async function fetchLiveServiceAreas(options: { forceRefresh?: boolean } 
     } catch (err) {
       return {
         data: areasCache?.data ?? [],
-        error: err instanceof Error ? err.message : 'Failed to connect to Supabase service_areas',
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Unable to load service coverage areas',
       };
     } finally {
       inflightAreasPromise = null;
@@ -533,21 +864,6 @@ export async function fetchLiveServiceAreas(options: { forceRefresh?: boolean } 
   return inflightAreasPromise;
 }
 
-/**
- * Schema representing spare parts and inventory records in Supabase `public.spare_parts`:
- * Verified live columns on `public.spare_parts`:
- * - id: uuid (primary key)
- * - name: text
- * - category: text
- * - sku: text
- * - stock: integer
- * - selling_price: numeric
- * - purchase_price: numeric
- * - reorder_level: integer
- * - supplier_id: uuid (foreign key -> public.suppliers.id)
- * - image_path: text (storage path in the "spare-part-images" Supabase Storage bucket, e.g. "parts/<filename>")
- * - created_at: timestamptz
- */
 export interface DbSparePartSupplier {
   id: string;
   name: string;
@@ -576,12 +892,6 @@ export function clearSparePartsCache(): void {
   sparePartsCache = null;
 }
 
-/**
- * Fetch spare parts directly from the live Supabase `public.spare_parts` table
- * along with its existing `suppliers` foreign-key relationship and `image_path` column.
- * Never invents product data and immediately reflects Admin Panel additions, edits,
- * image replacements, and removals.
- */
 export async function fetchLiveSpareParts(
   options: { forceRefresh?: boolean } = {}
 ): Promise<{
@@ -656,10 +966,8 @@ export async function fetchLiveSpareParts(
         };
       }
 
-      // Clear any stale cache if the last product was removed in the Admin Panel
       sparePartsCache = null;
 
-      // Check if 0 rows were returned while the caller is anonymous (`anon`)
       const { data: sessionData } = await supabase.auth.getSession();
       const isAnon = !sessionData?.session;
 
@@ -675,7 +983,7 @@ export async function fetchLiveSpareParts(
         error:
           err instanceof Error
             ? err.message
-            : 'Failed to connect to Supabase spare_parts table',
+            : 'Unable to load spare parts inventory',
         rlsBlocked: false,
         isLiveDb: false,
       };
@@ -686,4 +994,3 @@ export async function fetchLiveSpareParts(
 
   return inflightSparePartsPromise;
 }
-

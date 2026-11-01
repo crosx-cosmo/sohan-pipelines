@@ -6,15 +6,38 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const emptySubscribe = () => () => {};
+let isThemeMounted = false;
+const themeMountSubscribers = new Set<() => void>();
+
+function subscribeThemeMount(cb: () => void) {
+  themeMountSubscribers.add(cb);
+  return () => {
+    themeMountSubscribers.delete(cb);
+  };
+}
+
+function getThemeMountClientSnapshot() {
+  return isThemeMounted;
+}
+
+function getThemeMountServerSnapshot() {
+  return false;
+}
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = React.useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
+    subscribeThemeMount,
+    getThemeMountClientSnapshot,
+    getThemeMountServerSnapshot
   );
+
+  React.useEffect(() => {
+    if (!isThemeMounted) {
+      isThemeMounted = true;
+      themeMountSubscribers.forEach((cb) => cb());
+    }
+  }, []);
 
   const isDark = mounted && resolvedTheme === 'dark';
 

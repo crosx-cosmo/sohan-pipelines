@@ -850,7 +850,7 @@ function ReviewsWorkspaceContent() {
                   </span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
                     <BadgeCheck className="h-3.5 w-3.5" />
-                    Class-S Rated
+                    {analytics.totalReviews > 0 ? 'Verified Ledger' : 'Awaiting Reviews'}
                   </span>
                 </div>
 
@@ -858,7 +858,7 @@ function ReviewsWorkspaceContent() {
                   <span className="font-display text-5xl sm:text-6xl font-extrabold tracking-tight text-foreground tabular-nums font-mono">
                     {analytics.totalReviews > 0
                       ? analytics.averageRating.toFixed(1)
-                      : '5.0'}
+                      : '—'}
                   </span>
                   <div className="space-y-1">
                     <div className="flex items-center gap-1">
@@ -867,7 +867,7 @@ function ReviewsWorkspaceContent() {
                           key={star}
                           className={cn(
                             'h-4 w-4',
-                            analytics.totalReviews === 0 ||
+                            analytics.totalReviews > 0 &&
                               star <= Math.round(analytics.averageRating)
                               ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]'
                               : 'text-muted-foreground/30'
@@ -876,7 +876,9 @@ function ReviewsWorkspaceContent() {
                       ))}
                     </div>
                     <p className="text-xs text-muted-foreground font-mono tabular-nums">
-                      Out of 5.00 Master Standard
+                      {analytics.totalReviews > 0
+                        ? 'Out of 5.00 Master Standard'
+                        : 'Calculated from verified reviews'}
                     </p>
                   </div>
                 </div>
@@ -898,7 +900,7 @@ function ReviewsWorkspaceContent() {
                     <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400 tabular-nums">
                       {analytics.totalReviews > 0
                         ? `${analytics.recommendationRate}% Recommend`
-                        : '100% Satisfaction'}
+                        : 'No ratings yet'}
                     </span>
                   </div>
                   <div className="text-right">
@@ -934,9 +936,7 @@ function ReviewsWorkspaceContent() {
                   const pct =
                     analytics.totalReviews > 0
                       ? Math.round((count / analytics.totalReviews) * 100)
-                      : star === 5
-                        ? 100
-                        : 0;
+                      : 0;
                   return (
                     <button
                       key={star}
@@ -991,10 +991,10 @@ function ReviewsWorkspaceContent() {
               <div className="grid gap-3.5 sm:grid-cols-2">
                 {PILLAR_CONFIG.map((pillar) => {
                   const Icon = pillar.icon;
-                  const rawVal = analytics.pillarAverages[pillar.key];
-                  const val = analytics.totalReviews > 0 ? rawVal : 5.0;
-                  const pct = Math.round((val / 5) * 100);
-                  const grade = getCategoryGradeLabel(val);
+                  const hasData = analytics.totalReviews > 0;
+                  const val = hasData ? analytics.pillarAverages[pillar.key] : 0;
+                  const pct = hasData ? Math.round((val / 5) * 100) : 0;
+                  const grade = hasData ? getCategoryGradeLabel(val) : 'Unrated';
 
                   return (
                     <div
@@ -1018,7 +1018,7 @@ function ReviewsWorkspaceContent() {
 
                         <div className="text-right shrink-0">
                           <span className="font-mono text-sm font-extrabold text-foreground tabular-nums block">
-                            {val.toFixed(1)} ★
+                            {hasData ? `${val.toFixed(1)} ★` : '—'}
                           </span>
                           <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                             {grade}
@@ -1033,7 +1033,7 @@ function ReviewsWorkspaceContent() {
                               key={s}
                               className={cn(
                                 'h-3.5 w-3.5',
-                                s <= Math.round(val)
+                                hasData && s <= Math.round(val)
                                   ? 'fill-amber-400 text-amber-400'
                                   : 'text-muted-foreground/25'
                               )}
@@ -1224,9 +1224,9 @@ function ReviewsWorkspaceContent() {
                         Enter Your Booking Reference or Registered Phone Number
                       </h3>
                       <p className="text-xs sm:text-sm text-muted-foreground">
-                        Locate your plumbing work order by Booking ID (for example,{' '}
+                        Locate your plumbing work order by Booking Reference ID (for example,{' '}
                         <span className="font-mono font-semibold text-foreground">
-                          SP-20261014-054E7D
+                          SP-...
                         </span>
                         ) or mobile number to begin your evaluation.
                       </p>
@@ -1242,7 +1242,7 @@ function ReviewsWorkspaceContent() {
                         </Label>
                         <Input
                           id="review-booking-id"
-                          placeholder="e.g. SP-20261014-054E7D"
+                          placeholder="Enter Booking ID (e.g. SP-...)"
                           value={bookingIdInput}
                           onChange={(e) => setBookingIdInput(e.target.value)}
                           className="h-11 rounded-xl font-mono text-sm uppercase"
@@ -1801,7 +1801,7 @@ function ReviewsWorkspaceContent() {
                                 <Input
                                   id="rev-customer-name"
                                   required
-                                  placeholder="e.g. Subhajit Jana"
+                                  placeholder="Enter booking holder's full name"
                                   value={customerName}
                                   onChange={(e) =>
                                     setCustomerName(e.target.value)

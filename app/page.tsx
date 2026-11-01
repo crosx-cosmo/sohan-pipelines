@@ -8,6 +8,8 @@ import { HomeAreasPreview } from '@/components/sections/home-areas-preview';
 import { CtaSection } from '@/components/sections/cta-section';
 import { SITE_LOGO_URL } from '@/lib/site-logo';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Sohan Pipeline's & Plumbing — Total Plumbing Solutions",
   description:

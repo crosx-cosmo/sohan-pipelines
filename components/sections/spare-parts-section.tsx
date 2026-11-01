@@ -916,26 +916,29 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
               return (
                 <motion.div
                   key={part.id}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -4 }}
                   transition={{
-                    duration: 0.3,
+                    duration: 0.32,
                     delay: Math.min(index * 0.03, 0.25),
                     ease: luxuryEasing,
                   }}
+                  style={{ willChange: 'transform' }}
+                  className="h-full"
                 >
                   <Card
                     className={cn(
-                      'group h-full p-0 gap-0 rounded-2xl border bg-card overflow-hidden transition-all duration-200 flex flex-col justify-between shadow-crisp-xs hover:shadow-crisp-md',
+                      'group h-full p-0 gap-0 rounded-2xl border bg-card overflow-hidden transition-all duration-300 flex flex-col justify-between shadow-crisp-sm hover:shadow-crisp-lg',
                       isOutOfStock
                         ? 'border-border/60 opacity-85'
                         : inCartQty > 0
                         ? 'border-emerald-500/50 dark:border-emerald-500/40'
-                        : 'border-border/80 hover:border-primary/50'
+                        : 'border-border/85 hover:border-primary/55'
                     )}
                   >
                     <div>
-                      {/* Dedicated Unobstructed Product Image Container (Aligned to Top, 4:3 Aspect Ratio, Object-Contain) */}
+                      {/* Dedicated Unobstructed Studio Product Image Stage (4:3 Aspect Ratio, Object-Contain) */}
                       <div
                         onClick={() => setSelectedDetailPartId(part.id)}
                         role="button"
@@ -955,25 +958,25 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
                           imageUrl={part.image_url}
                           isOutOfStock={isOutOfStock}
                           priority={index < 4}
-                          className="group-hover:scale-[1.03]"
+                          className="group-hover:scale-[1.05]"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         />
                       </div>
 
-                      {/* Product Info & Dedicated Non-Obstructive Metadata Badges */}
-                      <CardContent className="p-4 space-y-2.5">
-                        {/* Category & Stock Status Row (Placed cleanly outside image area) */}
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 truncate max-w-[55%]">
+                      {/* Product Info & Clean Metadata Hierarchy */}
+                      <CardContent className="p-4 sm:p-5 space-y-3">
+                        {/* Category & Stock Status Row */}
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold text-primary truncate max-w-[55%]">
                             {part.category || 'Plumbing Hardware'}
                           </span>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             {inCartQty > 0 && (
                               <button
                                 type="button"
                                 onClick={openCart}
-                                className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white shadow-2xs flex items-center gap-1 cursor-pointer hover:bg-emerald-700 transition-colors"
+                                className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 cursor-pointer hover:underline tabular-nums"
                               >
                                 <Check className="h-3 w-3" />
                                 <span>In Cart ({inCartQty})</span>
@@ -981,37 +984,37 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
                             )}
                             <span
                               className={cn(
-                                'px-2 py-0.5 rounded-md text-[10px] font-semibold border shrink-0',
+                                'text-[11px] font-mono font-semibold tabular-nums shrink-0',
                                 isOutOfStock
-                                  ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                  ? 'text-destructive'
                                   : isLowStock
-                                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 font-bold'
-                                  : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
+                                  ? 'text-amber-600 dark:text-amber-400 font-bold'
+                                  : 'text-emerald-600 dark:text-emerald-400'
                               )}
                             >
                               {isOutOfStock
-                                ? 'Out of Stock'
+                                ? '● Out of Stock'
                                 : isLowStock
-                                ? `Only ${part.stock} Left`
+                                ? `● Only ${part.stock} Left`
                                 : part.stock !== null &&
                                   part.stock !== undefined
-                                ? `${part.stock} in Stock`
-                                : 'In Stock'}
+                                ? `● ${part.stock} in Stock`
+                                : '● In Stock'}
                             </span>
                           </div>
                         </div>
 
                         <div>
-                          <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                            {(part.brand || supplierName) ? (
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary truncate">
+                          <div className="flex items-center justify-between gap-1.5 mb-1">
+                            {part.brand || supplierName ? (
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
                                 {part.brand || supplierName}
                               </span>
                             ) : (
                               <span />
                             )}
                             {part.sku && (
-                              <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border/60 shrink-0">
+                              <span className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0">
                                 SKU: {part.sku}
                               </span>
                             )}
@@ -1032,10 +1035,10 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
                         </div>
 
                         {/* Price & View Details Row */}
-                        <div className="pt-2 border-t border-border/60 flex items-baseline justify-between gap-2">
+                        <div className="pt-2.5 border-t border-border/60 flex items-baseline justify-between gap-2">
                           <div>
-                            <span className="text-[10px] text-muted-foreground block">
-                              Selling Price
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground block">
+                              Counter Price
                             </span>
                             {part.selling_price !== null &&
                             part.selling_price !== undefined &&
@@ -1067,7 +1070,7 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
                               className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                             >
                               <Eye className="h-3 w-3" />
-                              View Details
+                              View Specs
                             </button>
                           </div>
                         </div>

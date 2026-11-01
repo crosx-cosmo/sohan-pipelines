@@ -99,17 +99,25 @@ export function SparePartImage({
   const [loadedUrl, setLoadedUrl] = React.useState<string | null>(null);
 
   const showImage = Boolean(resolvedUrl && failedUrl !== resolvedUrl);
-  const isImageLoading = Boolean(showImage && resolvedUrl && loadedUrl !== resolvedUrl);
+  const isImageLoading = Boolean(
+    showImage && resolvedUrl && loadedUrl !== resolvedUrl
+  );
 
   if (showImage && resolvedUrl) {
     return (
       <div
         className={cn(
-          'absolute inset-0 flex items-center justify-center bg-white dark:bg-slate-900/95 overflow-hidden select-none',
-          compact ? 'p-1.5' : 'p-3 sm:p-4'
+          'absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white via-slate-50/40 to-slate-100/50 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-950 overflow-hidden select-none',
+          compact ? 'p-1.5' : 'p-3.5 sm:p-5'
         )}
       >
-        {/* Subtle loading shimmer while the product image loads to prevent layout shifts */}
+        {/* Subtle Studio Radial Spotlight */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,62,158,0.06)_0%,transparent_70%)] pointer-events-none"
+        />
+
+        {/* Smooth loading shimmer while the product image loads */}
         {isImageLoading && (
           <div
             aria-hidden="true"
@@ -138,7 +146,7 @@ export function SparePartImage({
             onLoad={() => setLoadedUrl(resolvedUrl)}
             onError={() => setFailedUrl(resolvedUrl)}
             className={cn(
-              'object-contain object-center transition-all duration-300',
+              'object-contain object-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
               isImageLoading ? 'opacity-0 scale-95' : 'opacity-100 scale-100',
               isOutOfStock && 'grayscale-[35%] opacity-80',
               className
@@ -152,24 +160,24 @@ export function SparePartImage({
   return (
     <div
       className={cn(
-        'absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-300 select-none overflow-hidden',
+        'absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#F0F5FF] via-[#F6F9FC] to-[#E6EFFC] dark:from-[#071936] dark:via-[#091F44] dark:to-[#051024] text-[#071936] dark:text-slate-200 select-none overflow-hidden',
         isOutOfStock && 'opacity-75'
       )}
     >
       {/* Subtle Blueprint Grid Overlay */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-20 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]"
+        className="absolute inset-0 opacity-35 bg-[radial-gradient(#003E9E_1px,transparent_1px)] [background-size:16px_16px]"
       />
       <div
         aria-hidden="true"
-        className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-primary/15 blur-2xl"
+        className="absolute -bottom-10 -right-10 h-32 w-32 rounded-full bg-[#003E9E]/15 blur-2xl"
       />
 
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-3">
         <div
           className={cn(
-            'flex items-center justify-center rounded-2xl border border-sky-400/25 bg-sky-500/10 text-sky-300 shadow-inner',
+            'flex items-center justify-center rounded-2xl border border-[#DCE5F2] dark:border-[#1E3A6D] bg-white dark:bg-[#0A2246] text-[#003E9E] dark:text-[#60A5FA] shadow-xs',
             compact ? 'h-9 w-9 rounded-xl' : 'h-14 w-14 mb-2.5'
           )}
         >
@@ -181,10 +189,10 @@ export function SparePartImage({
         </div>
         {!compact && (
           <>
-            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-sky-300/90 font-semibold">
+            <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#003E9E] dark:text-[#60A5FA] font-bold">
               {category || 'Genuine Hardware'}
             </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 max-w-[180px]">
+            <span className="text-[10px] text-[#475569] dark:text-slate-400 mt-0.5 line-clamp-1 max-w-[180px]">
               Sohan Pipelines Counter
             </span>
           </>

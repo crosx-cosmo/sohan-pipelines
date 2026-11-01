@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { ArrowRight, Phone, Clock, ShieldCheck, CheckCircle2, Calendar, Sparkles } from 'lucide-react';
+import { ArrowRight, Phone, Clock, ShieldCheck, CheckCircle2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { businessInfo } from '@/lib/business-info';
 
@@ -16,10 +16,10 @@ export function CtaSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-50px' }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary via-primary/95 to-sky-700 p-8 sm:p-12 lg:p-16 text-center text-primary-foreground shadow-crisp-lg render-crisp"
+          className="relative overflow-hidden rounded-3xl border border-[#003E9E]/30 bg-gradient-to-br from-[#071936] via-[#003E9E] to-[#1C64EC] p-8 sm:p-12 lg:p-16 text-center text-white shadow-crisp-lg render-crisp"
         >
           {/* Subtle Ambient Radial Lighting */}
-          <div className="absolute inset-0 pointer-events-none opacity-25">
+          <div className="absolute inset-0 pointer-events-none opacity-20">
             <div className="absolute -top-24 left-1/4 h-80 w-80 rounded-full bg-white blur-3xl" />
             <div className="absolute -bottom-24 right-1/4 h-80 w-80 rounded-full bg-white blur-3xl" />
           </div>
@@ -50,10 +50,10 @@ export function CtaSection() {
                 <Button
                   asChild
                   size="lg"
-                  className="w-full sm:w-auto h-12 px-6 sm:px-7 font-bold text-sm bg-white text-slate-900 hover:bg-white/95 rounded-xl shadow-xl shadow-black/10 group whitespace-nowrap justify-center"
+                  className="w-full sm:w-auto h-12 px-6 sm:px-7 font-bold text-sm bg-white text-[#071936] hover:bg-white/95 rounded-xl shadow-xl shadow-black/10 group whitespace-nowrap justify-center"
                 >
                   <Link href="/book">
-                    <Calendar className="mr-2 h-4 w-4 text-primary shrink-0" />
+                    <Calendar className="mr-2 h-4 w-4 text-[#003E9E] shrink-0" />
                     Schedule Service Online
                     <ArrowRight className="ml-2 h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
                   </Link>

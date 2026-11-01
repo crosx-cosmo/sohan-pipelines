@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, Search, HelpCircle, Phone, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, Search, HelpCircle, Phone, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

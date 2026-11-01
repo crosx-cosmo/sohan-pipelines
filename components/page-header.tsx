@@ -64,7 +64,7 @@ export function PageHeader({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
         />
       )}
-      <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(#0284c7_1px,transparent_1px)] [background-size:24px_24px]" />
+      <div className="absolute inset-0 pointer-events-none opacity-35 bg-[radial-gradient(#003E9E_1px,transparent_1px)] [background-size:24px_24px]" />
       <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-9 sm:py-11 lg:py-14">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
           <div className="max-w-3xl min-w-0">

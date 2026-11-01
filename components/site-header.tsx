@@ -28,6 +28,11 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { CartTriggerButton } from '@/components/cart-trigger-button';
 import { businessInfo } from '@/lib/business-info';
 import { BrandLogo } from '@/components/brand-logo';
+import {
+  fetchLiveServices,
+  fetchLiveSpareParts,
+  fetchLiveServiceAreas,
+} from '@/lib/supabase-data';
 import { cn } from '@/lib/utils';
 import {
   drawerSlideVariants,
@@ -35,7 +40,7 @@ import {
 } from '@/lib/motion';
 
 const navLinks = [
-  { href: '/services', label: 'Services', icon: Wrench, description: '12 Certified Engineering Disciplines' },
+  { href: '/services', label: 'Services', icon: Wrench, description: 'Certified Plumbing & Pipeline Engineering' },
   { href: '/about', label: 'About', icon: Users, description: 'Master Plumber Experience & Standards' },
   { href: '/reviews', label: 'Reviews', icon: Star, description: 'Verified Client Feedback & Ratings' },
   { href: '/service-areas', label: 'Service Areas', icon: MapPin, description: 'Paschim & Purba Medinipur Coverage' },
@@ -49,6 +54,16 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const pathname = usePathname();
+
+  // Warm the in-memory data caches once so SPA navigation across pages is instantaneous
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchLiveServices();
+      void fetchLiveSpareParts();
+      void fetchLiveServiceAreas();
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Keyboard accessibility: Escape to close
   React.useEffect(() => {
@@ -106,7 +121,7 @@ export function SiteHeader() {
           'fixed top-0 left-0 right-0 z-40 transition-colors duration-200',
           scrolled || pathname !== '/'
             ? 'bg-background/95 dark:bg-background/90 backdrop-blur-xl border-b border-border/80 shadow-xs'
-            : 'bg-background/75 dark:bg-background/65 backdrop-blur-md border-b border-border/40'
+            : 'bg-background/85 dark:bg-background/75 backdrop-blur-md border-b border-border/50'
         )}
       >
         {/* Top Utility Strip (Desktop Only) */}
@@ -114,7 +129,7 @@ export function SiteHeader() {
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="inline-flex items-center gap-1.5 font-medium text-foreground whitespace-nowrap">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <ShieldCheck className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
                 <span>Plumbing Engineering &amp; Authorized Spare Parts</span>
               </span>
               <span className="text-border" aria-hidden="true">·</span>
@@ -124,7 +139,7 @@ export function SiteHeader() {
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
-                <Clock className="h-3 w-3 text-primary" />
+                <Clock className="h-3 w-3 text-[#003E9E] dark:text-[#60A5FA]" />
                 <span>
                   {businessInfo.hoursDays}: {businessInfo.hours}
                 </span>
@@ -134,7 +149,7 @@ export function SiteHeader() {
                 href={`tel:${businessInfo.phone}`}
                 className="font-semibold text-foreground hover:text-primary transition-colors inline-flex items-center gap-1 whitespace-nowrap"
               >
-                <Phone className="h-3 w-3 text-primary" />
+                <Phone className="h-3 w-3 text-[#003E9E] dark:text-[#60A5FA]" />
                 <span>{businessInfo.phoneDisplay}</span>
               </a>
             </div>
@@ -206,7 +221,7 @@ export function SiteHeader() {
             <Button
               asChild
               size="sm"
-              className="hidden sm:inline-flex font-semibold text-xs h-9 px-4 rounded-xl shadow-xs group whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex font-semibold text-xs h-9 px-4 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white shadow-xs group whitespace-nowrap shrink-0"
             >
               <Link href="/book">
                 <span>Book Service</span>
@@ -214,25 +229,19 @@ export function SiteHeader() {
               </Link>
             </Button>
 
-            {/* Mobile Hamburger / Close Trigger Button */}
+            {/* Mobile Hamburger Trigger Button (Hidden when drawer is open so there is only 1 close button inside the drawer) */}
             <button
               type="button"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open Navigation Menu"
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation-drawer"
               className={cn(
-                'lg:hidden flex h-10 w-10 items-center justify-center rounded-xl border transition-colors select-none cursor-pointer',
-                mobileMenuOpen
-                  ? 'border-primary/50 bg-primary/10 text-primary'
-                  : 'border-border/80 bg-card text-foreground hover:bg-muted/60 active:scale-95'
+                'lg:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 active:scale-95 transition-all select-none cursor-pointer',
+                mobileMenuOpen && 'opacity-0 pointer-events-none'
               )}
             >
-              {mobileMenuOpen ? (
-                <X className="h-5 w-5 transition-transform duration-200" />
-              ) : (
-                <Menu className="h-5 w-5 transition-transform duration-200" />
-              )}
+              <Menu className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -253,11 +262,11 @@ export function SiteHeader() {
               animate="visible"
               exit="hidden"
               onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs cursor-pointer z-0"
+              className="fixed inset-0 bg-[#071936]/70 backdrop-blur-xs cursor-pointer z-0"
               aria-hidden="true"
             />
 
-            {/* Fixed Edge-Anchored Slide-In Panel (Responsive width, stays anchored to the right) */}
+            {/* Fixed Edge-Anchored Slide-In Panel */}
             <motion.aside
               key="mobile-drawer-panel"
               variants={drawerSlideVariants}
@@ -270,7 +279,7 @@ export function SiteHeader() {
               aria-label="Mobile Navigation Menu"
               className="relative z-10 w-[86vw] max-w-[380px] min-w-[280px] h-full bg-card border-l border-border/80 shadow-2xl flex flex-col justify-between overflow-hidden shrink-0 select-none"
             >
-              {/* Drawer Top Header with Logo and Close Button */}
+              {/* Drawer Top Header with Logo and Single Close Button */}
               <div className="p-4 sm:p-5 border-b border-border/70 flex items-center justify-between bg-muted/20 shrink-0">
                 <Link
                   href="/"
@@ -300,10 +309,10 @@ export function SiteHeader() {
 
               {/* Scrollable Navigation Body */}
               <div className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-3 space-y-1.5">
-                {/* 24/7 Dispatch Status Banner */}
-                <div className="p-3 mb-2 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between">
+                {/* Dispatch Status Banner */}
+                <div className="p-3 mb-2 rounded-xl bg-[#003E9E]/5 border border-[#003E9E]/20 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs">
-                    <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <ShieldCheck className="h-4 w-4 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
                     <div>
                       <span className="font-semibold text-foreground block leading-tight">
                         Emergency Service Active
@@ -315,7 +324,7 @@ export function SiteHeader() {
                   </div>
                   <a
                     href={`tel:${businessInfo.phone}`}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#003E9E] text-white shadow-xs shrink-0"
                     aria-label="Call emergency hotline"
                   >
                     <Phone className="h-3.5 w-3.5" />
@@ -334,7 +343,7 @@ export function SiteHeader() {
                       className={cn(
                         'flex items-center justify-between w-full p-3 rounded-xl transition-colors duration-150 group',
                         active
-                          ? 'bg-primary/10 text-primary font-semibold border border-primary/30 shadow-xs'
+                          ? 'bg-[#003E9E]/10 text-[#003E9E] dark:text-[#60A5FA] font-semibold border border-[#003E9E]/30 shadow-xs'
                           : 'text-foreground hover:bg-muted/60 border border-transparent'
                       )}
                     >
@@ -343,14 +352,14 @@ export function SiteHeader() {
                           className={cn(
                             'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
                             active
-                              ? 'bg-primary text-primary-foreground'
+                              ? 'bg-[#003E9E] text-white'
                               : 'bg-muted/80 text-muted-foreground group-hover:bg-muted group-hover:text-foreground'
                           )}
                         >
                           <Icon className="h-4.5 w-4.5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <span className="text-sm font-semibold block leading-tight text-foreground group-hover:text-primary transition-colors">
+                          <span className="text-sm font-semibold block leading-tight text-foreground group-hover:text-[#003E9E] transition-colors">
                             {link.label}
                           </span>
                           <span className="text-[11px] text-muted-foreground block line-clamp-1 mt-0.5 font-normal">
@@ -362,7 +371,7 @@ export function SiteHeader() {
                       <ChevronRight
                         className={cn(
                           'h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5',
-                          active ? 'text-primary' : 'text-muted-foreground'
+                          active ? 'text-[#003E9E] dark:text-[#60A5FA]' : 'text-muted-foreground'
                         )}
                       />
                     </Link>
@@ -374,13 +383,16 @@ export function SiteHeader() {
               <div className="p-4 border-t border-border/70 space-y-2.5 bg-muted/30 shrink-0">
                 <div className="flex items-center justify-between px-1 text-xs font-medium text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <Sparkles className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
                     <span>Display Mode</span>
                   </span>
                   <ThemeToggle />
                 </div>
 
-                <Button asChild className="w-full font-bold h-11 text-xs rounded-xl shadow-md">
+                <Button
+                  asChild
+                  className="w-full font-bold h-11 text-xs rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white shadow-md"
+                >
                   <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
                     <Calendar className="mr-2 h-4 w-4" />
                     Book Service Online
@@ -391,7 +403,7 @@ export function SiteHeader() {
                   href={`tel:${businessInfo.phone}`}
                   className="flex items-center justify-center gap-2 text-xs font-semibold h-10.5 rounded-xl bg-card text-foreground hover:text-primary transition-colors border border-border/80 shadow-xs active:scale-[0.99]"
                 >
-                  <Phone className="h-3.5 w-3.5 text-primary" />
+                  <Phone className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
                   <span>Call Hotline: {businessInfo.phoneDisplay}</span>
                 </a>
 

@@ -50,22 +50,24 @@ function subscribeToCart(callback: () => void) {
   };
 }
 
-function getClientCartSnapshot(): CartItem[] {
-  if (typeof window === 'undefined') return EMPTY_CART;
-  if (!isLoadedFromStorage) {
-    isLoadedFromStorage = true;
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          memoryCart = parsed;
-        }
+function loadCartFromStorageOnce() {
+  if (typeof window === 'undefined' || isLoadedFromStorage) return;
+  isLoadedFromStorage = true;
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        memoryCart = parsed;
+        notifySubscribers();
       }
-    } catch {
-      // Ignore storage read errors
     }
+  } catch {
+    // Ignore storage read errors
   }
+}
+
+function getClientCartSnapshot(): CartItem[] {
   return memoryCart;
 }
 
@@ -74,7 +76,8 @@ function getServerCartSnapshot(): CartItem[] {
 }
 
 function updateStoredCart(updater: (prev: CartItem[]) => CartItem[]) {
-  const current = getClientCartSnapshot();
+  loadCartFromStorageOnce();
+  const current = memoryCart;
   const next = updater(current);
   memoryCart = next;
   if (typeof window !== 'undefined') {
@@ -93,6 +96,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     getClientCartSnapshot,
     getServerCartSnapshot
   );
+
+  React.useEffect(() => {
+    loadCartFromStorageOnce();
+  }, []);
 
   const [isCartOpen, setIsCartOpen] = React.useState(false);
 

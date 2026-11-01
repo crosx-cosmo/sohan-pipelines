@@ -41,15 +41,13 @@ import {
   fetchLiveServices,
   fetchLiveServiceAreas,
   getServiceIcon,
-  type DbService,
   type DbServiceArea,
 } from '@/lib/supabase-data';
 import { bookingTimeSlots, businessInfo } from '@/lib/business-info';
 import { cn } from '@/lib/utils';
 import { URGENCY_LEVELS, urgencyLabel, type UrgencyLevel } from '@/lib/booking-status';
 import { findOrCreateCustomer, createBooking } from '@/lib/booking-service';
-import { CustomSelect, type SelectOption } from '@/components/ui/custom-select';
-import { luxuryEasing } from '@/lib/motion';
+import { CustomSelect } from '@/components/ui/custom-select';
 
 type BookingStep = 'service' | 'urgency' | 'details' | 'location' | 'schedule' | 'confirm' | 'success';
 
