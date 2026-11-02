@@ -194,7 +194,7 @@ export function ContactSection() {
               {/* WhatsApp Direct Card */}
               <div className="group flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-4 sm:p-5 transition-[border-color,box-shadow,background-color] duration-200 hover:border-emerald-500/50 hover:shadow-md">
                 <a
-                  href={`https://wa.me/918670143003?text=${encodeURIComponent(
+                  href={`https://wa.me/919382882517?text=${encodeURIComponent(
                     'Hi Sohan Pipelines, I need plumbing assistance at my property. Please let me know your earliest available slot.'
                   )}`}
                   target="_blank"
@@ -571,7 +571,7 @@ export function ContactSection() {
                           className="h-11 rounded-xl text-xs font-semibold border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15"
                         >
                           <a
-                            href={`https://wa.me/918670143003?text=${encodeURIComponent(
+                            href={`https://wa.me/919382882517?text=${encodeURIComponent(
                               `Hi Sohan Pipelines, I am inquiring from ${
                                 activeArea.locality
                               } (Pin Code: ${

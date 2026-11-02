@@ -206,12 +206,12 @@ export function ServiceAreasSection() {
                   className="h-10 px-3.5 rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap border-[#DCE5F2] dark:border-border"
                 >
                   <a
-                    href="https://www.google.com/maps/search/?api=1&query=Bahardaltitia+Keshrambha+Dantan+West+Medinipur+721451"
+                    href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                    <span>Open in Maps</span>
+                    <span>Open Google Maps</span>
                   </a>
                 </Button>
 

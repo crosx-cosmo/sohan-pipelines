@@ -12,6 +12,7 @@ import { NavigationProgressBar } from '@/components/navigation-progress-bar';
 import { CartProvider } from '@/lib/cart-context';
 import { CartDrawer } from '@/components/cart-drawer';
 import { AiAssistantWidget } from '@/components/ai-assistant-widget';
+import { FirstVisitWaterIntro } from '@/components/first-visit-water-intro';
 import { SITE_LOGO_URL } from '@/lib/site-logo';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -152,6 +153,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
       <body className="font-sans antialiased min-h-screen w-full max-w-full overflow-x-hidden pb-16 md:pb-0 flex flex-col bg-background text-foreground">
+        <FirstVisitWaterIntro />
         <Suspense fallback={null}>
           <NavigationProgressBar />
         </Suspense>

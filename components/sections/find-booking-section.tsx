@@ -155,7 +155,7 @@ function FindBookingContent() {
                   <Input
                     id="lookupPhone"
                     type="tel"
-                    placeholder="e.g. 8670143003"
+                    placeholder="e.g. 9382882517"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
@@ -371,7 +371,7 @@ function FindBookingContent() {
                   className="rounded-xl text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   <a
-                    href={`https://wa.me/918670143003?text=${encodeURIComponent(
+                    href={`https://wa.me/919382882517?text=${encodeURIComponent(
                       `Hello Sohan Pipeline's & Plumbing, inquiring about Booking ${result.bookingId} (${result.serviceName}). Please provide the latest technician dispatch update.`
                     )}`}
                     target="_blank"

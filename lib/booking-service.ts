@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import type { UrgencyLevel } from '@/lib/booking-status';
+import {
+  checkClientActionCooldown,
+  sanitizeCustomerName,
+  sanitizePhone,
+  sanitizePlainText,
+} from '@/lib/security-shield';
 
 /**
  * Supabase is the single source of truth for booking data. The UI keeps its
@@ -8,7 +14,7 @@ import type { UrgencyLevel } from '@/lib/booking-status';
  */
 
 function normalizePhone(phone: string): string {
-  return phone.trim();
+  return sanitizePhone(phone);
 }
 
 async function resolveServiceId(serviceId: string, serviceName: string): Promise<string> {
@@ -87,17 +93,18 @@ function mapUrgencyToDatabase(urgency: UrgencyLevel): 'emergency' | 'today' | 'f
  */
 export async function findOrCreateCustomer(name: string, phone: string): Promise<string> {
   const normalizedPhone = normalizePhone(phone);
+  const cleanName = sanitizeCustomerName(name, 80) || 'Valued Customer';
   const customerId = crypto.randomUUID();
 
   // Always store locally so booking creation and lookup immediately have the customer's real name & phone
-  saveLocalCustomer({ id: customerId, name: name.trim(), phone: normalizedPhone });
+  saveLocalCustomer({ id: customerId, name: cleanName, phone: normalizedPhone });
 
   try {
     const { error: createError } = await supabase
       .from('customers')
       .insert({
         id: customerId,
-        full_name: name.trim(),
+        full_name: cleanName,
         phone: normalizedPhone,
       });
 
@@ -215,10 +222,27 @@ export interface CreatedBooking {
 
 /** Creates a booking using the existing Supabase schema or local resilient store. */
 export async function createBooking(input: CreateBookingInput): Promise<CreatedBooking> {
-  const serviceUuid = await resolveServiceId(input.serviceId, input.serviceName);
+  const rateGuard = checkClientActionCooldown('create-booking', 6, 60_000);
+  if (!rateGuard.allowed) {
+    throw new Error(
+      `Too many booking attempts. Please wait ${rateGuard.waitSeconds} seconds before submitting again.`
+    );
+  }
+
+  const cleanServiceName = sanitizePlainText(input.serviceName, 120);
+  const cleanAddress = sanitizePlainText(input.address, 350);
+  const cleanArea = input.area ? sanitizePlainText(input.area, 100) : null;
+  const cleanNotes = input.notes ? sanitizePlainText(input.notes, 600) : null;
+  const cleanTimeSlot = input.preferredTimeSlot
+    ? sanitizePlainText(input.preferredTimeSlot, 60)
+    : null;
+
+  const serviceUuid = await resolveServiceId(input.serviceId, cleanServiceName);
   const databaseUrgency = mapUrgencyToDatabase(input.urgency);
 
-  let preferredDate = input.preferredDate;
+  let preferredDate = input.preferredDate
+    ? sanitizePlainText(input.preferredDate, 20)
+    : null;
   if (!preferredDate && databaseUrgency === 'flexible') {
     // Satisfy PostgreSQL check constraint "flexible_booking_requires_date"
     const tomorrow = new Date();
@@ -251,9 +275,9 @@ export async function createBooking(input: CreateBookingInput): Promise<CreatedB
         service_id: serviceUuid,
         urgency: databaseUrgency,
         preferred_date: preferredDate,
-        preferred_time: input.preferredTimeSlot,
-        address: input.address,
-        additional_notes: input.notes,
+        preferred_time: cleanTimeSlot,
+        address: cleanAddress,
+        additional_notes: cleanNotes,
         status: 'pending',
       })
       .select('id, booking_id, status, created_at')
@@ -262,8 +286,8 @@ export async function createBooking(input: CreateBookingInput): Promise<CreatedB
     if (!bookingError && booking) {
       await supabase.from('booking_locations').insert({
         booking_id: booking.id,
-        formatted_address: input.address,
-        city: input.area,
+        formatted_address: cleanAddress,
+        city: cleanArea,
       });
 
       const successfulBooking: CreatedBooking = {

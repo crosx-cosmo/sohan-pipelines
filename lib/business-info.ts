@@ -3,8 +3,8 @@ export const businessInfo = {
   tagline: 'Total Plumbing Solutions',
   description:
     'Your trusted plumbing partner in West Medinipur and surrounding areas. From precision pipe fitting to full bathroom installation, we deliver reliable, professional plumbing services for homes and businesses.',
-  phone: '+918670143003',
-  phoneDisplay: '+91 86701 43003',
+  phone: '+919382882517',
+  phoneDisplay: '+91 93828 82517',
   email: 'contact@sohanpipelines.in',
   address:
     'Vill : - Bahardaltitia, PO : - Keshrambha, PS : - Dantan, Dist : - West Medinipur, State : - West Bengal, Pin Code : - 721451',
@@ -13,6 +13,7 @@ export const businessInfo = {
   state: 'West Bengal',
   pincode: '721451',
   area: 'Dist : - West Medinipur, State : - West Bengal, Pin Code : - 721451',
+  googleMapsUrl: 'https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5',
   hours: '10:00 AM - 3:00 PM',
   hoursDays: 'Monday to Saturday',
   sundayHours: 'Closed',

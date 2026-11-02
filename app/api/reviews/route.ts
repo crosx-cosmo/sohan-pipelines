@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { VerifiedWorkReview } from '@/lib/reviews-service';
+import {
+  sanitizeBookingId,
+  sanitizeCustomerName,
+  sanitizePlainText,
+} from '@/lib/security-shield';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const REVIEWS_FILE = path.join(DATA_DIR, 'verified-reviews.json');
@@ -56,19 +61,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const incoming = body?.review as VerifiedWorkReview | undefined;
 
-    if (
-      !incoming ||
-      !incoming.bookingId ||
-      !incoming.customerName ||
-      !incoming.comment
-    ) {
+    const normalizedBookingId = sanitizeBookingId(incoming?.bookingId);
+    const cleanCustomerName = sanitizeCustomerName(incoming?.customerName, 80);
+    const cleanComment = sanitizePlainText(incoming?.comment, 1200);
+    const cleanHeadline = sanitizePlainText(incoming?.headline, 140);
+    const cleanServiceName = sanitizePlainText(incoming?.serviceName, 120);
+    const cleanLocality = sanitizePlainText(incoming?.locality, 100);
+    const safeRating = Math.min(5, Math.max(1, Math.round(Number(incoming?.rating) || 5)));
+
+    if (!incoming || !normalizedBookingId || !cleanCustomerName || !cleanComment) {
       return NextResponse.json(
         { error: 'Booking ID, customer name, and review comment are required.' },
         { status: 400 }
       );
     }
 
-    const normalizedBookingId = incoming.bookingId.trim().toUpperCase();
     const existing = await readStoredReviews();
     const nowIso = new Date().toISOString();
 
@@ -81,14 +88,19 @@ export async function POST(req: NextRequest) {
       id:
         existingIdx >= 0
           ? existing[existingIdx].id
-          : incoming.id ||
-            `rev-${normalizedBookingId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          : `rev-${normalizedBookingId.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
       bookingId: normalizedBookingId,
+      customerName: cleanCustomerName,
+      headline: cleanHeadline,
+      comment: cleanComment,
+      serviceName: cleanServiceName || incoming.serviceName || 'Plumbing Service',
+      locality: cleanLocality || incoming.locality || 'West Medinipur',
+      rating: safeRating,
       verifiedWorkOrder: true,
       helpfulCount:
         existingIdx >= 0
           ? existing[existingIdx].helpfulCount || 0
-          : incoming.helpfulCount || 0,
+          : Math.max(0, Math.min(1000, Number(incoming.helpfulCount) || 0)),
       createdAt:
         existingIdx >= 0
           ? existing[existingIdx].createdAt

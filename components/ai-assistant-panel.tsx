@@ -307,7 +307,7 @@ export default function AiAssistantPanel({ onClose, onMinimize }: AiAssistantPan
             {
               id: 'whatsapp-fallback',
               label: 'Contact on WhatsApp',
-              href: `https://wa.me/918670143003?text=${encodeURIComponent(
+              href: `https://wa.me/919382882517?text=${encodeURIComponent(
                 `Hello Sohan Pipeline's & Plumbing, I need help with: ${trimmed}`
               )}`,
               variant: 'whatsapp',

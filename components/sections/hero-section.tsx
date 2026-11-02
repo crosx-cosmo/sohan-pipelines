@@ -191,7 +191,7 @@ export function HeroSection() {
                 className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-4 rounded-xl border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/60 w-full justify-center shadow-xs transition-colors"
               >
                 <a
-                  href={`https://wa.me/918670143003?text=${encodeURIComponent(
+                  href={`https://wa.me/919382882517?text=${encodeURIComponent(
                     'Hi, I’d like to connect with the founder of SOHAN PIPELINES regarding a plumbing service inquiry. Could you please assist me? Thank you.'
                   )}`}
                   target="_blank"

@@ -944,7 +944,7 @@ function BookingWizard() {
               <div className="flex flex-wrap gap-2.5 justify-center pt-2">
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
                   <a
-                    href={`https://wa.me/918670143003?text=${encodeURIComponent(
+                    href={`https://wa.me/919382882517?text=${encodeURIComponent(
                       `Hello Sohan Pipeline's & Plumbing, I just booked online:\n• Booking ID: ${bookingId}\n• Customer: ${data.name}\n• Service: ${data.service?.name}\n• Priority: ${data.urgency ? urgencyLabel(data.urgency) : 'Standard'}\n• Address: ${data.address}${data.area ? ` (${data.area})` : ''}\n• Phone: ${data.phone}\nPlease confirm dispatch.`
                     )}`}
                     target="_blank"

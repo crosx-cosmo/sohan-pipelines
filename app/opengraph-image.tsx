@@ -170,7 +170,7 @@ export default async function Image() {
               fontWeight: 800,
             }}
           >
-            <span>📞 +91 86701 43003</span>
+            <span>📞 +91 93828 82517</span>
           </div>
         </div>
       </div>

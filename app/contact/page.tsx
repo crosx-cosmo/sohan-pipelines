@@ -8,7 +8,7 @@ import { SITE_LOGO_URL } from '@/lib/site-logo';
 export const metadata: Metadata = {
   title: 'Contact Engineering Dispatch & Support',
   description:
-    "Direct contact lines for Sohan Pipeline's & Plumbing in Keshrambha, Dantan, Midnapore. 24/7 emergency dispatch hotline: +91 86701 43003.",
+    "Direct contact lines for Sohan Pipeline's & Plumbing in Keshrambha, Dantan, Midnapore. 24/7 emergency dispatch hotline: +91 93828 82517.",
   keywords: [
     'contact plumber Midnapore',
     'plumber phone number Dantan',
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Contact Engineering Dispatch & Support',
     description:
-      'Direct contact lines for Sohan Pipeline in Dantan, Midnapore. Emergency hotline: +91 86701 43003.',
+      'Direct contact lines for Sohan Pipeline in Dantan, Midnapore. Emergency hotline: +91 93828 82517.',
     images: [SITE_LOGO_URL],
   },
 };

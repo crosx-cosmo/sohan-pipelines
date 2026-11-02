@@ -287,7 +287,7 @@ export function HomeAreasPreview() {
                   className="h-10 px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-[#003E9E] text-[#003E9E] dark:text-[#60A5FA] text-xs font-semibold gap-1.5 whitespace-nowrap"
                 >
                   <a
-                    href="https://www.google.com/maps/search/?api=1&query=Bahardaltitia+Keshrambha+Dantan+West+Medinipur+721451"
+                    href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
                     target="_blank"
                     rel="noopener noreferrer"
                   >

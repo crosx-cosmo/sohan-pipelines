@@ -7,6 +7,8 @@ export default function nextConfig(phase: string): NextConfig {
   return {
     distDir: isDevServer ? '.next-dev' : '.next',
     reactStrictMode: true,
+    poweredByHeader: false,
+    compress: true,
     eslint: {
       ignoreDuringBuilds: true,
     },

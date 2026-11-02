@@ -93,7 +93,7 @@ export function HomeServicesPreview() {
   }, [servicesList]);
 
   const rawPhone =
-    businessInfo.phone.replace(/\D/g, '') || '918670143003';
+    businessInfo.phone.replace(/\D/g, '') || '919382882517';
 
   return (
     <section

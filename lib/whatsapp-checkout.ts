@@ -101,8 +101,8 @@ export function getCartWhatsAppUrl(
   items: CartItem[],
   customerInfo?: CustomerEnquiryInfo
 ): string {
-  // Extract digits for international wa.me link: +918670143003 -> 918670143003
-  const rawPhone = businessInfo.phone.replace(/[^0-9]/g, '');
+  // Extract digits for international wa.me link: +919382882517 -> 919382882517
+  const rawPhone = businessInfo.phone.replace(/[^0-9]/g, '') || '919382882517';
   const message = buildCartWhatsAppMessage(items, customerInfo);
   return `https://wa.me/${rawPhone}?text=${encodeURIComponent(message)}`;
 }
