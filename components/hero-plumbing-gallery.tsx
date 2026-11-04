@@ -18,7 +18,6 @@ import { luxuryEasing } from '@/lib/motion';
 
 export interface GalleryImageItem {
   id: string;
-  originalUrl: string;
   src: string;
   title: string;
   category: string;
@@ -29,7 +28,6 @@ export interface GalleryImageItem {
 export const plumbingGalleryItems: GalleryImageItem[] = [
   {
     id: 'wa-0004',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0004.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0004.jpg',
     title: 'Modern Shower Enclosure & Bathroom Fittings',
     category: 'Shower Enclosure',
@@ -38,7 +36,6 @@ export const plumbingGalleryItems: GalleryImageItem[] = [
   },
   {
     id: 'wa-0005',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0005.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0005.jpg',
     title: 'Reliable Water Outlet & Tap Fittings',
     category: 'Water Outlets',
@@ -47,7 +44,6 @@ export const plumbingGalleryItems: GalleryImageItem[] = [
   },
   {
     id: 'wa-0006',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0006.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0006.jpg',
     title: 'Bathroom Sanitaryware & Flush System',
     category: 'Sanitaryware',
@@ -56,7 +52,6 @@ export const plumbingGalleryItems: GalleryImageItem[] = [
   },
   {
     id: 'wa-0007',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0007.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0007.jpg',
     title: 'Water Heater & Hot-Water Connections',
     category: 'Hot-Water Lines',
@@ -65,7 +60,6 @@ export const plumbingGalleryItems: GalleryImageItem[] = [
   },
   {
     id: 'wa-0008',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0008.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0008.jpg',
     title: 'Designer Wash Basin & Faucet Fittings',
     category: 'Designer Basin',
@@ -74,7 +68,6 @@ export const plumbingGalleryItems: GalleryImageItem[] = [
   },
   {
     id: 'wa-0009',
-    originalUrl: 'https://jlfqodfdqkbunqfaffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0009.jpg',
     src: 'https://jlfqodfdqkbunqfgffut.supabase.co/storage/v1/object/public/Plumbing%20Assets/IMG-20261014-WA0009.jpg',
     title: 'Shower Fixtures & Bathroom Finishing',
     category: 'Fixtures & Finish',

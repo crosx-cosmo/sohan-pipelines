@@ -3,18 +3,22 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 
-const INTRO_STORAGE_KEY = 'sohan_pipelines_water_intro_session_v2';
-const LEGACY_INTRO_STORAGE_KEY = 'sohan_pipelines_water_intro_seen_v1';
+const INTRO_STORAGE_KEY = 'sohan_pipelines_water_intro_session_v3';
+const LEGACY_KEYS = [
+  'sohan_pipelines_water_intro_seen_v1',
+  'sohan_pipelines_water_intro_session_v2',
+];
 const CART_STORAGE_KEY = 'sohan_pipelines_cart_v1';
 const LOADING_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours default loading session
 
-// Module-level guard so even if localStorage is blocked (e.g. strict private mode),
-// the intro never replays during internal SPA route navigation.
+// Module-level guard so internal SPA route navigation never replays the animation.
 let hasPlayedInCurrentSession = false;
 
 function isWithin24HourLoadingSession(): boolean {
   try {
-    window.localStorage.removeItem(LEGACY_INTRO_STORAGE_KEY);
+    for (const key of LEGACY_KEYS) {
+      window.localStorage.removeItem(key);
+    }
     const raw = window.localStorage.getItem(INTRO_STORAGE_KEY);
     if (!raw) return false;
     const lastTimestamp = Number(raw);
@@ -34,14 +38,30 @@ function record24HourLoadingSession(): void {
   }
 }
 
+interface DropletSpec {
+  id: number;
+  xRatio: number;
+  startYRatio: number;
+  impactYRatio: number;
+  baseRadius: number;
+  formStart: number;
+  fallStart: number;
+  impactTime: number;
+  isPrimary: boolean;
+  playedFormSound: boolean;
+  playedFallSound: boolean;
+  playedImpact: boolean;
+}
+
 interface SplashParticle {
   x: number;
   y: number;
+  impactY: number;
   vx: number;
   vy: number;
   radius: number;
   alpha: number;
-  delay: number;
+  spawnTime: number;
   reentered: boolean;
 }
 
@@ -51,6 +71,59 @@ interface MiniRipple {
   radius: number;
   maxRadius: number;
   alpha: number;
+}
+
+interface CausticMote {
+  angleOffset: number;
+  radiusOffset: number;
+  size: number;
+  phase: number;
+}
+
+/**
+ * Safely triggers short, controlled hardware vibration via `navigator.vibrate()`
+ * when supported and permitted by the browser/device. Never throws or assumes support.
+ */
+function triggerHardwareHaptic(pattern: number | number[]): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  try {
+    if (typeof navigator.vibrate === 'function') {
+      return Boolean(navigator.vibrate(pattern));
+    }
+  } catch {
+    // Browser blocked vibration (e.g., lack of user gesture activation or unsupported OS)
+  }
+  return false;
+}
+
+/**
+ * Provides a subtle, controlled 135ms visual impact micro-refraction pulse on the live
+ * webpage at the exact moment a droplet impacts, ensuring tactile visual feedback
+ * even when hardware vibration is unavailable.
+ */
+function triggerVisualImpactFallback(intensity: number): void {
+  if (typeof document === 'undefined') return;
+  const mainEl = document.querySelector('main');
+  if (!mainEl || typeof mainEl.animate !== 'function') return;
+  try {
+    const shiftPx = (1.6 * intensity).toFixed(2);
+    mainEl.animate(
+      [
+        { transform: 'translate3d(0, 0, 0)' },
+        { transform: `translate3d(0, ${shiftPx}px, 0)` },
+        { transform: `translate3d(0, -${(0.6 * intensity).toFixed(2)}px, 0)` },
+        { transform: 'translate3d(0, 0, 0)' },
+      ],
+      {
+        duration: 145,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      }
+    );
+  } catch {
+    // Ignore if Web Animations API is unavailable
+  }
 }
 
 /**
@@ -101,8 +174,8 @@ class WaterAcousticEngine {
     );
   }
 
-  /** Stage 2: Soft, crystalline water droplet condensation sound */
-  public playDropletFormation() {
+  /** Soft crystalline water droplet condensation sound */
+  public playDropletFormation(pitchMultiplier = 1) {
     if (!this.canPlay() || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
@@ -110,25 +183,28 @@ class WaterAcousticEngine {
       const gain = this.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(780, now + 0.28);
+      osc.frequency.setValueAtTime(510 * pitchMultiplier, now);
+      osc.frequency.exponentialRampToValueAtTime(
+        760 * pitchMultiplier,
+        now + 0.24
+      );
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(0.024, now + 0.09);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      gain.gain.linearRampToValueAtTime(0.018, now + 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.32);
+      osc.stop(now + 0.28);
     } catch {
       // Silent fallback
     }
   }
 
-  /** Stage 3: Subtle laminar falling-water movement */
-  public playDropletFall() {
+  /** Subtle laminar falling-water movement */
+  public playDropletFall(pitchMultiplier = 1) {
     if (!this.canPlay() || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
@@ -136,47 +212,56 @@ class WaterAcousticEngine {
       const gain = this.ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(610, now);
-      osc.frequency.exponentialRampToValueAtTime(290, now + 0.34);
+      osc.frequency.setValueAtTime(600 * pitchMultiplier, now);
+      osc.frequency.exponentialRampToValueAtTime(
+        285 * pitchMultiplier,
+        now + 0.32
+      );
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(0.018, now + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      gain.gain.linearRampToValueAtTime(0.015, now + 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.36);
+      osc.stop(now + 0.35);
     } catch {
       // Silent fallback
     }
   }
 
   /**
-   * Stage 4 & 5: Authentic Minnaert bubble-cavity water impact +
-   * subtle low-frequency resonance + delicate aquatic ripple shimmer fade-out.
+   * Authentic Minnaert bubble-cavity water impact +
+   * subtle low-frequency resonance + delicate Pixel-inspired upward wave shimmer.
    */
-  public playWaterImpactAndResonance() {
+  public playWaterImpactAndResonance(isPrimary = true, pitchMultiplier = 1) {
     if (!this.canPlay() || !this.ctx) return;
     try {
       const now = this.ctx.currentTime;
+      const volScale = isPrimary ? 1 : 0.62;
 
       // 1. Primary Minnaert Bubble Cavity Plip (upward exponential pitch sweep)
       const dropOsc = this.ctx.createOscillator();
       const dropGain = this.ctx.createGain();
       dropOsc.type = 'sine';
-      dropOsc.frequency.setValueAtTime(310, now);
-      dropOsc.frequency.exponentialRampToValueAtTime(1140, now + 0.072);
+      dropOsc.frequency.setValueAtTime(320 * pitchMultiplier, now);
+      dropOsc.frequency.exponentialRampToValueAtTime(
+        1180 * pitchMultiplier,
+        now + 0.072
+      );
 
       dropGain.gain.setValueAtTime(0.0001, now);
-      dropGain.gain.linearRampToValueAtTime(0.095, now + 0.008);
+      dropGain.gain.linearRampToValueAtTime(0.09 * volScale, now + 0.008);
       dropGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
 
       dropOsc.connect(dropGain);
       dropGain.connect(this.ctx.destination);
       dropOsc.start(now);
       dropOsc.stop(now + 0.1);
+
+      if (!isPrimary) return;
 
       // 2. Secondary Rebound Pearl Droplet Plip (135ms after primary impact)
       const pearlOsc = this.ctx.createOscillator();
@@ -186,7 +271,7 @@ class WaterAcousticEngine {
       pearlOsc.frequency.exponentialRampToValueAtTime(1480, now + 0.19);
 
       pearlGain.gain.setValueAtTime(0.0001, now + 0.135);
-      pearlGain.gain.linearRampToValueAtTime(0.045, now + 0.143);
+      pearlGain.gain.linearRampToValueAtTime(0.042, now + 0.143);
       pearlGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.21);
 
       pearlOsc.connect(pearlGain);
@@ -203,7 +288,8 @@ class WaterAcousticEngine {
       );
       const output = noiseBuffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.28));
+        output[i] =
+          (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.28));
       }
       const whiteNoise = this.ctx.createBufferSource();
       whiteNoise.buffer = noiseBuffer;
@@ -214,7 +300,7 @@ class WaterAcousticEngine {
       bandpass.Q.setValueAtTime(2.4, now);
 
       const splashGain = this.ctx.createGain();
-      splashGain.gain.setValueAtTime(0.032, now);
+      splashGain.gain.setValueAtTime(0.028, now);
       splashGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
 
       whiteNoise.connect(bandpass);
@@ -222,7 +308,7 @@ class WaterAcousticEngine {
       splashGain.connect(this.ctx.destination);
       whiteNoise.start(now);
 
-      // 4. Subtle Low-Frequency Tactile Resonance (synchronized with screen ripple)
+      // 4. Subtle Low-Frequency Tactile Resonance (synchronized with bottom-up wave)
       const subOsc = this.ctx.createOscillator();
       const subGain = this.ctx.createGain();
       subOsc.type = 'sine';
@@ -230,7 +316,7 @@ class WaterAcousticEngine {
       subOsc.frequency.exponentialRampToValueAtTime(54, now + 0.48);
 
       subGain.gain.setValueAtTime(0.0001, now);
-      subGain.gain.linearRampToValueAtTime(0.075, now + 0.025);
+      subGain.gain.linearRampToValueAtTime(0.07, now + 0.025);
       subGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.52);
 
       subOsc.connect(subGain);
@@ -238,28 +324,28 @@ class WaterAcousticEngine {
       subOsc.start(now);
       subOsc.stop(now + 0.55);
 
-      // 5. Delicate Luminous Ripple Shimmer Fade-Out
-      const shimmerFreqs = [528, 792];
+      // 5. Delicate Luminous Bottom-Up Wave Shimmer
+      const shimmerFreqs = [528, 792, 1056];
       shimmerFreqs.forEach((freq, idx) => {
         if (!this.ctx) return;
         const shimOsc = this.ctx.createOscillator();
         const shimGain = this.ctx.createGain();
         shimOsc.type = 'sine';
-        shimOsc.frequency.setValueAtTime(freq, now + 0.03);
+        shimOsc.frequency.setValueAtTime(freq, now + 0.03 + idx * 0.04);
         shimOsc.frequency.exponentialRampToValueAtTime(
-          freq * 1.015,
-          now + 0.78
+          freq * 1.025,
+          now + 0.95
         );
 
-        const peak = idx === 0 ? 0.022 : 0.012;
-        shimGain.gain.setValueAtTime(0.0001, now + 0.03);
-        shimGain.gain.linearRampToValueAtTime(peak, now + 0.14);
-        shimGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.82);
+        const peak = idx === 0 ? 0.02 : idx === 1 ? 0.012 : 0.008;
+        shimGain.gain.setValueAtTime(0.0001, now + 0.03 + idx * 0.04);
+        shimGain.gain.linearRampToValueAtTime(peak, now + 0.16);
+        shimGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.98);
 
         shimOsc.connect(shimGain);
         shimGain.connect(this.ctx.destination);
-        shimOsc.start(now + 0.03);
-        shimOsc.stop(now + 0.85);
+        shimOsc.start(now + 0.03 + idx * 0.04);
+        shimOsc.stop(now + 1.0);
       });
     } catch {
       // Silent fallback
@@ -283,10 +369,10 @@ export function FirstVisitWaterIntro() {
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. Do not replay on internal route navigation or non-home entry if already seen
+    // 1. Do not replay on internal route navigation
     if (hasPlayedInCurrentSession) return;
 
-    // 2. Respect prefers-reduced-motion
+    // 2. Respect prefers-reduced-motion accessibility preference
     if (
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -296,7 +382,7 @@ export function FirstVisitWaterIntro() {
       return;
     }
 
-    // 3. Do not interrupt an active booking or shopping-cart session
+    // 3. Do not interrupt an active booking or find-booking workflow
     if (
       pathname.startsWith('/book') ||
       pathname.startsWith('/find-booking')
@@ -326,10 +412,29 @@ export function FirstVisitWaterIntro() {
     }
 
     hasPlayedInCurrentSession = true;
-    const frameId = window.requestAnimationFrame(() => {
-      setVisible(true);
-    });
-    return () => window.cancelAnimationFrame(frameId);
+
+    // Trigger once the initial page is painted and visible
+    let rafId = 0;
+    const startOverlay = () => {
+      rafId = window.requestAnimationFrame(() => {
+        setVisible(true);
+      });
+    };
+
+    if (document.readyState === 'complete') {
+      startOverlay();
+    } else {
+      window.addEventListener('load', startOverlay, { once: true });
+      // Fallback in case 'load' takes longer on slow image assets — website DOM is already visible
+      const fallbackTimer = window.setTimeout(startOverlay, 120);
+      return () => {
+        window.removeEventListener('load', startOverlay);
+        window.clearTimeout(fallbackTimer);
+        window.cancelAnimationFrame(rafId);
+      };
+    }
+
+    return () => window.cancelAnimationFrame(rafId);
   }, [pathname]);
 
   React.useEffect(() => {
@@ -337,28 +442,36 @@ export function FirstVisitWaterIntro() {
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    // CRITICAL: alpha: true ensures the canvas is 100% transparent over the live website
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     const audio = new WaterAcousticEngine();
-    const unlockAudio = () => audio.unlock();
-    window.addEventListener('pointerdown', unlockAudio, {
+    const unlockInteraction = () => {
+      audio.unlock();
+    };
+    window.addEventListener('pointerdown', unlockInteraction, {
       once: true,
       passive: true,
     });
-    window.addEventListener('touchstart', unlockAudio, {
+    window.addEventListener('touchstart', unlockInteraction, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', unlockInteraction, {
       once: true,
       passive: true,
     });
 
     let width = window.innerWidth;
     let height = window.innerHeight;
-    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap DPR at 1.75 for buttery 60fps performance on low-end Android devices
+    let dpr = Math.min(window.devicePixelRatio || 1, 1.75);
 
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.75);
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
@@ -367,56 +480,107 @@ export function FirstVisitWaterIntro() {
     resize();
     window.addEventListener('resize', resize, { passive: true });
 
-    // Animation Timeline Constants (in milliseconds)
-    // Stage 1: 0 - 380ms (Calm water surface appears in lower-middle area)
-    // Stage 2: 280 - 880ms (Realistic transparent water droplet forms near upper portion)
-    // Stage 3: 880 - 1280ms (Smooth physical gravitational fall)
-    // Stage 4: 1280 - 2050ms (Water splash crown, rebound pearl, circular ripples)
-    // Stage 5: 1285 - 2250ms (Brief controlled Pixel-inspired vibration + full-screen luminous aqua wave)
-    // Stage 6: 2100 - 2550ms (Ripples naturally fade, smooth reveal of homepage)
-    const IMPACT_TIME = 1280;
-    const FADE_START_TIME = 2120;
-    const TOTAL_DURATION = 2560;
+    // Staggered Multi-Droplet Choreography (falls from top over live website to bottom impact zone)
+    const droplets: DropletSpec[] = [
+      {
+        id: 1,
+        xRatio: 0.5,
+        startYRatio: 0.08,
+        impactYRatio: 0.91,
+        baseRadius: 15.5,
+        formStart: 60,
+        fallStart: 420,
+        impactTime: 980,
+        isPrimary: true,
+        playedFormSound: false,
+        playedFallSound: false,
+        playedImpact: false,
+      },
+      {
+        id: 2,
+        xRatio: 0.3,
+        startYRatio: 0.06,
+        impactYRatio: 0.93,
+        baseRadius: 11.5,
+        formStart: 230,
+        fallStart: 560,
+        impactTime: 1140,
+        isPrimary: false,
+        playedFormSound: false,
+        playedFallSound: false,
+        playedImpact: false,
+      },
+      {
+        id: 3,
+        xRatio: 0.7,
+        startYRatio: 0.07,
+        impactYRatio: 0.925,
+        baseRadius: 12.5,
+        formStart: 370,
+        fallStart: 690,
+        impactTime: 1280,
+        isPrimary: false,
+        playedFormSound: false,
+        playedFallSound: false,
+        playedImpact: false,
+      },
+    ];
 
-    let playedFormationAudio = false;
-    let playedFallAudio = false;
-    let playedImpactAudio = false;
+    const PRIMARY_IMPACT_TIME = droplets[0].impactTime;
+    const FADE_START_TIME = 2580;
+    const TOTAL_DURATION = 2980;
+
     let triggeredFadeOut = false;
 
     const particles: SplashParticle[] = [];
     const miniRipples: MiniRipple[] = [];
 
-    const spawnImpactParticles = (cx: number, cy: number, scale: number) => {
-      const count = 16;
+    // Pre-seeded luminous caustic motes that ride along the Pixel bottom-up wave
+    const causticMotes: CausticMote[] = Array.from({ length: 22 }, (_, i) => ({
+      angleOffset: -Math.PI * 0.88 + (Math.PI * 0.76 * i) / 21,
+      radiusOffset: (i % 3 - 1) * 14,
+      size: 1.5 + (i % 3) * 0.9,
+      phase: i * 0.7,
+    }));
+
+    const spawnImpactParticles = (
+      cx: number,
+      cy: number,
+      scale: number,
+      nowElapsed: number,
+      count: number
+    ) => {
       for (let i = 0; i < count; i++) {
         const angle =
           -Math.PI * 0.15 -
-          (Math.PI * 0.7 * i) / (count - 1) +
+          (Math.PI * 0.7 * i) / Math.max(1, count - 1) +
           (Math.random() - 0.5) * 0.08;
-        const speed = (3.1 + Math.random() * 3.4) * scale;
+        const speed = (2.8 + Math.random() * 3.1) * scale;
         particles.push({
-          x: cx + Math.cos(angle) * 10 * scale,
+          x: cx + Math.cos(angle) * 8 * scale,
           y: cy - 2 * scale,
+          impactY: cy,
           vx: Math.cos(angle) * speed * (0.75 + Math.random() * 0.45),
           vy: Math.sin(angle) * speed * (0.85 + Math.random() * 0.35),
-          radius: (1.6 + Math.random() * 2.3) * scale,
-          alpha: 0.92,
-          delay: Math.random() * 35,
+          radius: (1.5 + Math.random() * 2.1) * scale,
+          alpha: 0.9,
+          spawnTime: nowElapsed + Math.random() * 25,
           reentered: false,
         });
       }
     };
 
     /**
-     * Renders a photorealistic transparent 3D water droplet with internal caustic
-     * refraction, Fresnel rim lighting, and dual curved specular highlights.
+     * Renders a transparent, refractive 3D water droplet that blends with the
+     * underlying live website while preserving realistic aqua rim highlights,
+     * internal caustic glow, and curved white specular reflections.
      */
-    const drawRealisticWaterDroplet = (
+    const drawTransparentWaterDroplet = (
       x: number,
       y: number,
       rx: number,
       ry: number,
-      pinchFactor: number, // 0 = sphere, 1 = classic teardrop
+      pinchFactor: number,
       alpha: number
     ) => {
       if (alpha <= 0.01 || rx <= 0.5 || ry <= 0.5) return;
@@ -425,24 +589,24 @@ export function FirstVisitWaterIntro() {
       ctx.translate(x, y);
       ctx.globalAlpha = alpha;
 
-      // 1. Subtle Refractive Contact Shadow / Caustic Projection behind droplet
-      const shadowGrad = ctx.createRadialGradient(
+      // 1. Soft Cyan/Aqua Refractive Halo so droplet stands out on both light & dark website sections
+      const haloGrad = ctx.createRadialGradient(
         0,
-        ry * 0.35,
+        ry * 0.25,
         rx * 0.1,
         0,
-        ry * 0.55,
-        rx * 1.45
+        ry * 0.35,
+        rx * 1.6
       );
-      shadowGrad.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
-      shadowGrad.addColorStop(0.55, 'rgba(186, 230, 253, 0.09)');
-      shadowGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = shadowGrad;
+      haloGrad.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+      haloGrad.addColorStop(0.55, 'rgba(34, 211, 238, 0.10)');
+      haloGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = haloGrad;
       ctx.beginPath();
-      ctx.ellipse(0, ry * 0.45, rx * 1.35, ry * 1.1, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, ry * 0.3, rx * 1.5, ry * 1.25, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 2. Define Physical Teardrop / Pendant Contour Path
+      // 2. Physical Teardrop Contour Path
       ctx.beginPath();
       const topTipY = -ry * (1 + pinchFactor * 0.38);
       ctx.moveTo(0, topTipY);
@@ -473,63 +637,46 @@ export function FirstVisitWaterIntro() {
       );
       ctx.closePath();
 
-      // 3. Base Transparent Liquid Body Gradient (Crystal clear water on white)
+      // 3. Ultra-Transparent Liquid Glass Body (website remains clearly visible through the droplet)
       const bodyGrad = ctx.createLinearGradient(
         -rx * 0.5,
         topTipY,
         rx * 0.6,
         ry
       );
-      bodyGrad.addColorStop(0, 'rgba(203, 213, 225, 0.38)');
-      bodyGrad.addColorStop(0.28, 'rgba(224, 242, 254, 0.52)');
-      bodyGrad.addColorStop(0.68, 'rgba(186, 230, 253, 0.65)');
-      bodyGrad.addColorStop(0.9, 'rgba(125, 211, 252, 0.72)');
-      bodyGrad.addColorStop(1, 'rgba(56, 189, 248, 0.58)');
+      bodyGrad.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
+      bodyGrad.addColorStop(0.32, 'rgba(224, 242, 254, 0.22)');
+      bodyGrad.addColorStop(0.7, 'rgba(125, 211, 252, 0.32)');
+      bodyGrad.addColorStop(1, 'rgba(34, 211, 238, 0.42)');
       ctx.fillStyle = bodyGrad;
       ctx.fill();
 
-      // 4. Internal Caustic Focal Lens Glow (bottom-right internal refraction)
+      // 4. Internal Caustic Lens Refraction
       ctx.save();
       ctx.clip();
 
       const causticGrad = ctx.createRadialGradient(
         rx * 0.18,
         ry * 0.48,
-        rx * 0.05,
+        rx * 0.04,
         rx * 0.1,
         ry * 0.38,
         rx * 0.85
       );
-      causticGrad.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
-      causticGrad.addColorStop(0.35, 'rgba(224, 242, 254, 0.75)');
-      causticGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.22)');
+      causticGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      causticGrad.addColorStop(0.38, 'rgba(186, 230, 253, 0.45)');
+      causticGrad.addColorStop(0.75, 'rgba(56, 189, 248, 0.16)');
       causticGrad.addColorStop(1, 'rgba(14, 165, 233, 0)');
       ctx.fillStyle = causticGrad;
       ctx.fillRect(-rx * 1.2, topTipY, rx * 2.4, ry * 2.4);
-
-      // Subtle upper-left refractive edge darkening for realistic 3D liquid volume
-      const depthGrad = ctx.createRadialGradient(
-        -rx * 0.25,
-        -ry * 0.15,
-        rx * 0.1,
-        0,
-        0,
-        rx * 1.1
-      );
-      depthGrad.addColorStop(0, 'rgba(148, 163, 184, 0.22)');
-      depthGrad.addColorStop(0.6, 'rgba(148, 163, 184, 0.04)');
-      depthGrad.addColorStop(1, 'rgba(14, 165, 233, 0.28)');
-      ctx.fillStyle = depthGrad;
-      ctx.fillRect(-rx * 1.2, topTipY, rx * 2.4, ry * 2.4);
-
       ctx.restore();
 
-      // 5. Crisp Fresnel Rim Highlight
-      ctx.lineWidth = Math.max(1, rx * 0.065);
+      // 5. Crisp Luminous Aqua/Cyan Fresnel Rim Edge
+      ctx.lineWidth = Math.max(1.1, rx * 0.085);
       const rimGrad = ctx.createLinearGradient(0, topTipY, 0, ry);
-      rimGrad.addColorStop(0, 'rgba(148, 163, 184, 0.35)');
-      rimGrad.addColorStop(0.45, 'rgba(56, 189, 248, 0.55)');
-      rimGrad.addColorStop(1, 'rgba(14, 165, 233, 0.78)');
+      rimGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+      rimGrad.addColorStop(0.45, 'rgba(56, 189, 248, 0.72)');
+      rimGrad.addColorStop(1, 'rgba(34, 211, 238, 0.92)');
       ctx.strokeStyle = rimGrad;
       ctx.stroke();
 
@@ -538,19 +685,25 @@ export function FirstVisitWaterIntro() {
       ctx.translate(-rx * 0.34, -ry * 0.08);
       ctx.rotate(-0.32);
       const specGrad = ctx.createLinearGradient(0, -ry * 0.36, 0, ry * 0.36);
-      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-      specGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.82)');
-      specGrad.addColorStop(1, 'rgba(255, 255, 255, 0.15)');
+      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      specGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.75)');
+      specGrad.addColorStop(1, 'rgba(255, 255, 255, 0.08)');
       ctx.fillStyle = specGrad;
       ctx.beginPath();
       ctx.ellipse(0, 0, rx * 0.15, ry * 0.34, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
-      // 7. Secondary Pinpoint Specular Dot
+      // 7. Secondary Pinpoint Specular Glint
       ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
       ctx.beginPath();
-      ctx.arc(-rx * 0.18, -ry * 0.45, Math.max(1.2, rx * 0.075), 0, Math.PI * 2);
+      ctx.arc(
+        -rx * 0.18,
+        -ry * 0.45,
+        Math.max(1.2, rx * 0.075),
+        0,
+        Math.PI * 2
+      );
       ctx.fill();
 
       // 8. Bottom Rim Reflected Glint
@@ -572,31 +725,42 @@ export function FirstVisitWaterIntro() {
     const renderFrame = (now: number) => {
       const elapsed = now - startTime;
       const scale = Math.min(width, height) / 780;
-      const clampedScale = Math.max(0.78, Math.min(scale, 1.35));
+      const clampedScale = Math.max(0.76, Math.min(scale, 1.32));
 
-      const centerX = width * 0.5;
-      const startDropY = height * 0.17;
-      const waterSurfaceY = height * 0.62;
+      // Process droplet audio & synchronized haptic/visual impact cues
+      for (let i = 0; i < droplets.length; i++) {
+        const d = droplets[i];
+        const pitch = d.isPrimary ? 1 : d.id === 2 ? 1.18 : 1.09;
 
-      // Audio cues synchronized to stages
-      if (elapsed >= 280 && !playedFormationAudio) {
-        playedFormationAudio = true;
-        audio.playDropletFormation();
-      }
-      if (elapsed >= 880 && !playedFallAudio) {
-        playedFallAudio = true;
-        audio.playDropletFall();
-      }
-      if (elapsed >= IMPACT_TIME && !playedImpactAudio) {
-        playedImpactAudio = true;
-        audio.playWaterImpactAndResonance();
-        spawnImpactParticles(centerX, waterSurfaceY, clampedScale);
-        // Subtle tactile haptic pulse on supported Android devices
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          try {
-            navigator.vibrate([7, 24, 4]);
-          } catch {
-            // Ignore if vibration blocked
+        if (elapsed >= d.formStart && !d.playedFormSound) {
+          d.playedFormSound = true;
+          audio.playDropletFormation(pitch);
+        }
+        if (elapsed >= d.fallStart && !d.playedFallSound) {
+          d.playedFallSound = true;
+          audio.playDropletFall(pitch);
+        }
+        if (elapsed >= d.impactTime && !d.playedImpact) {
+          d.playedImpact = true;
+          audio.playWaterImpactAndResonance(d.isPrimary, pitch);
+
+          const dropX = width * d.xRatio;
+          const dropImpactY = height * d.impactYRatio;
+          spawnImpactParticles(
+            dropX,
+            dropImpactY,
+            clampedScale * (d.isPrimary ? 1 : 0.78),
+            elapsed,
+            d.isPrimary ? 14 : 8
+          );
+
+          // Synchronized hardware vibration + automatic visual impact fallback
+          if (d.isPrimary) {
+            triggerHardwareHaptic([16, 28, 10]);
+            triggerVisualImpactFallback(1);
+          } else {
+            triggerHardwareHaptic(10);
+            triggerVisualImpactFallback(0.55);
           }
         }
       }
@@ -615,318 +779,259 @@ export function FirstVisitWaterIntro() {
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // 1. Pure White Canvas Background
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
-
-      // Stage 5: Controlled, brief Pixel-inspired full-screen micro-vibration right at impact
-      let shakeX = 0;
-      let shakeY = 0;
-      if (elapsed >= IMPACT_TIME && elapsed < IMPACT_TIME + 175) {
-        const vibProgress = (elapsed - IMPACT_TIME) / 175;
-        const damping = Math.pow(1 - vibProgress, 2.2);
-        const amplitude = 2.1 * clampedScale * damping;
-        shakeX = Math.sin(vibProgress * Math.PI * 7) * amplitude * 0.45;
-        shakeY = Math.cos(vibProgress * Math.PI * 9) * amplitude;
-      }
-      ctx.translate(shakeX, shakeY);
+      // CRITICAL: Clear canvas to 100% transparency so live website is always visible underneath
+      ctx.clearRect(0, 0, width, height);
 
       // -----------------------------------------------------------------------
-      // STAGE 1: Calm Water Atmosphere (Lower-Middle Water Surface & Reflection)
+      // 1. GOOGLE PIXEL-INSPIRED BOTTOM-UP EXPANDING WAVE & RIPPLE EFFECT
       // -----------------------------------------------------------------------
-      const surfaceAppear = Math.min(1, elapsed / 380);
-      const surfaceFadeOut =
-        elapsed > 1950 ? Math.max(0, 1 - (elapsed - 1950) / 550) : 1;
-      const calmAlpha = surfaceAppear * surfaceFadeOut;
+      if (elapsed >= PRIMARY_IMPACT_TIME) {
+        const waveElapsed = elapsed - PRIMARY_IMPACT_TIME;
+        // Wave originates at the bottom center of the screen and sweeps Smoothly UPWARD to the top
+        const waveOriginX = width * 0.5;
+        const waveOriginY = height * 1.03;
+        const maxBottomToTopRadius = Math.hypot(width * 0.65, height * 1.12);
 
-      if (calmAlpha > 0.01) {
-        const poolRx = (155 + Math.sin(elapsed * 0.003) * 4) * clampedScale;
-
-        // Soft ambient aqua-grey reflection pool
-        const poolGrad = ctx.createRadialGradient(
-          centerX,
-          waterSurfaceY,
-          poolRx * 0.04,
-          centerX,
-          waterSurfaceY,
-          poolRx * 1.25
-        );
-        poolGrad.addColorStop(
-          0,
-          `rgba(186, 230, 253, ${0.36 * calmAlpha})`
-        );
-        poolGrad.addColorStop(
-          0.45,
-          `rgba(224, 242, 254, ${0.26 * calmAlpha})`
-        );
-        poolGrad.addColorStop(
-          0.78,
-          `rgba(241, 245, 249, ${0.18 * calmAlpha})`
-        );
-        poolGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        ctx.save();
-        ctx.translate(centerX, waterSurfaceY);
-        ctx.scale(1, 0.29);
-        ctx.fillStyle = poolGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, poolRx * 1.25, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Delicate calm circular water surface rings
-        for (let i = 0; i < 2; i++) {
-          const breathe =
-            ((elapsed * 0.00055 + i * 0.5) % 1) * poolRx * 0.85;
-          const ringAlpha =
-            Math.sin(((elapsed * 0.00055 + i * 0.5) % 1) * Math.PI) *
-            0.28 *
-            calmAlpha;
-          ctx.strokeStyle = `rgba(56, 189, 248, ${ringAlpha})`;
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.arc(0, 0, poolRx * 0.2 + breathe, 0, Math.PI * 2);
-          ctx.stroke();
+        // Subtle bottom-edge luminous impact horizon glow right as droplets strike
+        if (waveElapsed < 900) {
+          const glowProg = waveElapsed / 900;
+          const glowAlpha = Math.sin(glowProg * Math.PI) * 0.28;
+          const bottomGlow = ctx.createRadialGradient(
+            waveOriginX,
+            height,
+            10 * clampedScale,
+            waveOriginX,
+            height,
+            Math.max(width * 0.7, 360 * clampedScale)
+          );
+          bottomGlow.addColorStop(0, `rgba(34, 211, 238, ${glowAlpha})`);
+          bottomGlow.addColorStop(0.5, `rgba(56, 189, 248, ${glowAlpha * 0.55})`);
+          bottomGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          ctx.fillStyle = bottomGlow;
+          ctx.fillRect(0, height * 0.55, width, height * 0.45);
         }
-        ctx.restore();
-      }
 
-      // -----------------------------------------------------------------------
-      // STAGE 5: Pixel-Inspired Full-Screen Concentric Luminous Aqua Waves
-      // -----------------------------------------------------------------------
-      if (elapsed >= IMPACT_TIME) {
-        const impactElapsed = elapsed - IMPACT_TIME;
-        const maxDiag = Math.hypot(width, height) * 0.72;
+        // 5 Concentric Luminous Bottom-to-Top Wavefronts (Google Pixel Charging Wave style)
+        const bottomUpWaveCount = 5;
+        for (let w = 0; w < bottomUpWaveCount; w++) {
+          const wDelay = w * 135;
+          if (waveElapsed < wDelay) continue;
 
-        // Primary Full-Screen Pixel-Style Luminous Aqua Wave
-        const wave1Progress = Math.min(1, impactElapsed / 1050);
-        const wave1Ease = 1 - Math.pow(1 - wave1Progress, 2.35);
-        const wave1Radius = 18 * clampedScale + maxDiag * wave1Ease;
-        const wave1Alpha = Math.pow(1 - wave1Progress, 1.55);
+          const wDuration = 1480 + w * 90;
+          const wProg = Math.min(1, (waveElapsed - wDelay) / wDuration);
+          // Smooth fluid deceleration as wave sweeps from bottom to top of viewport
+          const wEase = 1 - Math.pow(1 - wProg, 2.15);
 
-        if (wave1Alpha > 0.01) {
-          const bandThickness = (68 + wave1Progress * 95) * clampedScale;
-          const innerR = Math.max(0, wave1Radius - bandThickness);
-          const waveGrad = ctx.createRadialGradient(
-            centerX,
-            waterSurfaceY,
+          const currentRadius =
+            24 * clampedScale + maxBottomToTopRadius * wEase;
+          const fadeEnvelope =
+            Math.min(1, wProg * 6) * Math.pow(1 - wProg, 1.35);
+          const waveAlpha = fadeEnvelope * (w === 0 ? 0.85 : 0.68 - w * 0.1);
+
+          if (waveAlpha <= 0.008) continue;
+
+          // Translucent luminous trailing wave band
+          const bandThickness =
+            (w === 0 ? 95 : 58 - w * 6) * (0.7 + wProg * 0.5) * clampedScale;
+          const innerR = Math.max(1, currentRadius - bandThickness);
+          const outerR = currentRadius + 10 * clampedScale;
+
+          const bandGrad = ctx.createRadialGradient(
+            waveOriginX,
+            waveOriginY,
             innerR,
-            centerX,
-            waterSurfaceY,
-            wave1Radius + 16 * clampedScale
+            waveOriginX,
+            waveOriginY,
+            outerR
           );
-          waveGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-          waveGrad.addColorStop(
-            0.45,
-            `rgba(224, 242, 254, ${0.32 * wave1Alpha})`
+          bandGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+          bandGrad.addColorStop(
+            0.55,
+            `rgba(186, 230, 253, ${0.12 * waveAlpha})`
           );
-          waveGrad.addColorStop(
-            0.78,
-            `rgba(56, 189, 248, ${0.22 * wave1Alpha})`
+          bandGrad.addColorStop(
+            0.84,
+            `rgba(56, 189, 248, ${0.24 * waveAlpha})`
           );
-          waveGrad.addColorStop(
-            0.92,
-            `rgba(34, 211, 238, ${0.28 * wave1Alpha})`
+          bandGrad.addColorStop(
+            0.95,
+            `rgba(34, 211, 238, ${0.34 * waveAlpha})`
           );
-          waveGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          bandGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
-          ctx.fillStyle = waveGrad;
+          ctx.fillStyle = bandGrad;
           ctx.beginPath();
-          ctx.arc(
-            centerX,
-            waterSurfaceY,
-            wave1Radius + 16 * clampedScale,
-            0,
-            Math.PI * 2
-          );
+          ctx.arc(waveOriginX, waveOriginY, outerR, Math.PI, Math.PI * 2);
           ctx.fill();
 
-          // Crisp specular glass wavefront ring
-          ctx.strokeStyle = `rgba(56, 189, 248, ${0.34 * wave1Alpha})`;
-          ctx.lineWidth = 1.6 * clampedScale;
+          // Crisp luminous cyan/aqua outer wavefront ring
+          ctx.strokeStyle = `rgba(34, 211, 238, ${0.58 * waveAlpha})`;
+          ctx.lineWidth = Math.max(1.2, (2.8 - w * 0.38) * clampedScale);
           ctx.beginPath();
-          ctx.arc(centerX, waterSurfaceY, wave1Radius * 0.94, 0, Math.PI * 2);
+          ctx.arc(
+            waveOriginX,
+            waveOriginY,
+            currentRadius,
+            Math.PI,
+            Math.PI * 2
+          );
           ctx.stroke();
-        }
 
-        // Secondary & Tertiary Concentric Full-Screen Harmonic Waves
-        for (let w = 1; w <= 2; w++) {
-          const delay = w * 145;
-          if (impactElapsed > delay) {
-            const subProgress = Math.min(
-              1,
-              (impactElapsed - delay) / (980 + w * 80)
-            );
-            const subEase = 1 - Math.pow(1 - subProgress, 2.4);
-            const subRadius = 14 * clampedScale + maxDiag * 0.85 * subEase;
-            const subAlpha = Math.pow(1 - subProgress, 1.8) * (0.28 / w);
+          // Fine specular white crest highlight along the leading edge of the upward wave
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.72 * waveAlpha})`;
+          ctx.lineWidth = Math.max(0.9, (1.5 - w * 0.2) * clampedScale);
+          ctx.beginPath();
+          ctx.arc(
+            waveOriginX,
+            waveOriginY,
+            currentRadius - 1.5 * clampedScale,
+            Math.PI * 1.08,
+            Math.PI * 1.92
+          );
+          ctx.stroke();
 
-            ctx.strokeStyle = `rgba(34, 211, 238, ${subAlpha})`;
-            ctx.lineWidth = (2.2 - w * 0.5) * clampedScale;
-            ctx.beginPath();
-            ctx.arc(centerX, waterSurfaceY, subRadius, 0, Math.PI * 2);
-            ctx.stroke();
+          // Pixel-inspired luminous micro-caustic sparkles riding the primary upward wave crest
+          if (w === 0) {
+            for (let m = 0; m < causticMotes.length; m++) {
+              const mote = causticMotes[m];
+              const mRadius =
+                currentRadius +
+                mote.radiusOffset * clampedScale -
+                18 * clampedScale;
+              if (mRadius <= 10) continue;
+              const mx = waveOriginX + Math.sin(mote.angleOffset) * mRadius;
+              const my = waveOriginY - Math.cos(mote.angleOffset) * mRadius;
+              if (my < -20 || my > height + 10) continue;
+
+              const twinkle =
+                0.45 + 0.55 * Math.sin(elapsed * 0.012 + mote.phase);
+              const moteAlpha = waveAlpha * twinkle * 0.78;
+
+              ctx.fillStyle = `rgba(224, 242, 254, ${moteAlpha})`;
+              ctx.beginPath();
+              ctx.arc(
+                mx,
+                my,
+                mote.size * clampedScale,
+                0,
+                Math.PI * 2
+              );
+              ctx.fill();
+            }
           }
         }
       }
 
       // -----------------------------------------------------------------------
-      // STAGE 4: Water Surface Impact Ripples, Crown Splash & Rebound Pearl
+      // 2. LOCAL BOTTOM SURFACE IMPACT RIPPLES, CROWN SPLASH & REBOUND PEARLS
       // -----------------------------------------------------------------------
-      if (elapsed >= IMPACT_TIME) {
-        const impactElapsed = elapsed - IMPACT_TIME;
+      for (let dIdx = 0; dIdx < droplets.length; dIdx++) {
+        const d = droplets[dIdx];
+        if (elapsed < d.impactTime) continue;
 
-        // 1. Expanding Perspective Surface Ripples (6 layered wave crests)
-        const rippleCount = 6;
-        for (let i = 0; i < rippleCount; i++) {
-          const rDelay = i * 75;
+        const impactElapsed = elapsed - d.impactTime;
+        const dropX = width * d.xRatio;
+        const dropImpactY = height * d.impactYRatio;
+        const dScale = clampedScale * (d.isPrimary ? 1 : 0.76);
+
+        // Concentric perspective water ripples at each droplet's bottom impact site
+        const ringCount = d.isPrimary ? 5 : 3;
+        for (let r = 0; r < ringCount; r++) {
+          const rDelay = r * 70;
           if (impactElapsed < rDelay) continue;
 
-          const rTime = impactElapsed - rDelay;
-          const rDuration = 980 + i * 70;
-          const rProg = Math.min(1, rTime / rDuration);
-          const rEase = 1 - Math.pow(1 - rProg, 2.5);
+          const rDuration = 920 + r * 65;
+          const rProg = Math.min(1, (impactElapsed - rDelay) / rDuration);
+          const rEase = 1 - Math.pow(1 - rProg, 2.4);
 
-          const maxRx = (195 + i * 48) * clampedScale;
-          const currentRx = 12 * clampedScale + maxRx * rEase;
-          const currentRy = currentRx * 0.31;
-          const alpha = Math.pow(1 - rProg, 1.65) * (0.72 - i * 0.08);
+          const maxRx = (175 + r * 44) * dScale;
+          const currentRx = 10 * dScale + maxRx * rEase;
+          const currentRy = currentRx * 0.28;
+          const rAlpha = Math.pow(1 - rProg, 1.6) * (0.68 - r * 0.09);
 
-          if (alpha <= 0.005) continue;
+          if (rAlpha <= 0.008) continue;
 
           ctx.save();
-          ctx.translate(centerX, waterSurfaceY);
+          ctx.translate(dropX, dropImpactY);
 
-          // Aqua wave trough glow
-          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.68})`;
-          ctx.lineWidth = Math.max(1, (3.6 - i * 0.42) * (1 - rProg * 0.5) * clampedScale);
+          // Luminous aqua ripple ring
+          ctx.strokeStyle = `rgba(34, 211, 238, ${rAlpha * 0.78})`;
+          ctx.lineWidth = Math.max(
+            1,
+            (3.2 - r * 0.4) * (1 - rProg * 0.45) * dScale
+          );
           ctx.beginPath();
           ctx.ellipse(0, 0, currentRx, currentRy, 0, 0, Math.PI * 2);
           ctx.stroke();
 
-          // Specular white crest reflection on the front & back arc
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
-          ctx.lineWidth = Math.max(0.8, (1.8 - i * 0.2) * clampedScale);
+          // Crisp white specular crest arc
+          ctx.strokeStyle = `rgba(255, 255, 255, ${rAlpha * 0.9})`;
+          ctx.lineWidth = Math.max(0.8, (1.5 - r * 0.2) * dScale);
           ctx.beginPath();
           ctx.ellipse(
             0,
-            -1.2 * clampedScale,
+            -1 * dScale,
             currentRx * 0.985,
             currentRy * 0.985,
             0,
-            Math.PI * 0.08,
-            Math.PI * 0.92
-          );
-          ctx.stroke();
-
-          // Subtle light-grey/slate refraction shadow under the front crest
-          ctx.strokeStyle = `rgba(148, 163, 184, ${alpha * 0.28})`;
-          ctx.lineWidth = 1.1 * clampedScale;
-          ctx.beginPath();
-          ctx.ellipse(
-            0,
-            2 * clampedScale,
-            currentRx * 1.01,
-            currentRy * 1.01,
-            0,
-            Math.PI * 0.12,
-            Math.PI * 0.88
+            Math.PI * 1.08,
+            Math.PI * 1.92
           );
           ctx.stroke();
 
           ctx.restore();
         }
 
-        // 2. Central Luminous Impact Flash & Worthington Jet Column
-        if (impactElapsed < 420) {
-          const jetProg = impactElapsed / 420;
-          // Jet rises rapidly then subsides back into the pool
+        // Worthington Rising Liquid Jet & Rebounding Pearl at Impact Point
+        if (impactElapsed < 400) {
+          const jetProg = impactElapsed / 400;
           const jetCurve = Math.sin(jetProg * Math.PI);
-          const jetHeight = 46 * clampedScale * jetCurve;
-          const jetWidth = (13 - jetProg * 6) * clampedScale;
-          const jetAlpha = (1 - jetProg * 0.75) * 0.85;
+          const jetHeight = 40 * dScale * jetCurve;
+          const jetWidth = (11 - jetProg * 5) * dScale;
+          const jetAlpha = (1 - jetProg * 0.75) * 0.78;
 
-          ctx.save();
-          ctx.translate(centerX, waterSurfaceY);
-
-          // Base crater ring
-          const craterRx = (18 + jetProg * 28) * clampedScale;
-          const craterRy = craterRx * 0.3;
-          const craterGrad = ctx.createRadialGradient(
-            0,
-            0,
-            2,
-            0,
-            0,
-            craterRx
-          );
-          craterGrad.addColorStop(
-            0,
-            `rgba(125, 211, 252, ${0.55 * (1 - jetProg)})`
-          );
-          craterGrad.addColorStop(
-            0.65,
-            `rgba(224, 242, 254, ${0.35 * (1 - jetProg)})`
-          );
-          craterGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          ctx.fillStyle = craterGrad;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, craterRx, craterRy, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Rising liquid column (Worthington jet)
           if (jetHeight > 2) {
+            ctx.save();
+            ctx.translate(dropX, dropImpactY);
             ctx.beginPath();
-            ctx.moveTo(-jetWidth * 1.35, 2 * clampedScale);
+            ctx.moveTo(-jetWidth * 1.3, 2 * dScale);
             ctx.quadraticCurveTo(
               -jetWidth * 0.45,
               -jetHeight * 0.45,
               -jetWidth * 0.28,
               -jetHeight
             );
-            ctx.arc(
-              0,
-              -jetHeight,
-              jetWidth * 0.28,
-              Math.PI,
-              0,
-              false
-            );
+            ctx.arc(0, -jetHeight, jetWidth * 0.28, Math.PI, 0, false);
             ctx.quadraticCurveTo(
               jetWidth * 0.45,
               -jetHeight * 0.45,
-              jetWidth * 1.35,
-              2 * clampedScale
+              jetWidth * 1.3,
+              2 * dScale
             );
             ctx.closePath();
 
             const colGrad = ctx.createLinearGradient(0, -jetHeight, 0, 4);
-            colGrad.addColorStop(0, `rgba(186, 230, 253, ${jetAlpha})`);
-            colGrad.addColorStop(0.5, `rgba(125, 211, 252, ${jetAlpha * 0.85})`);
-            colGrad.addColorStop(1, 'rgba(224, 242, 254, 0.1)');
+            colGrad.addColorStop(0, `rgba(224, 242, 254, ${jetAlpha})`);
+            colGrad.addColorStop(0.5, `rgba(56, 189, 248, ${jetAlpha * 0.75})`);
+            colGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
             ctx.fillStyle = colGrad;
             ctx.fill();
-
-            ctx.strokeStyle = `rgba(56, 189, 248, ${jetAlpha * 0.65})`;
-            ctx.lineWidth = 1.1 * clampedScale;
-            ctx.stroke();
+            ctx.restore();
           }
-          ctx.restore();
         }
 
-        // 3. Rebounding Secondary Pearl Droplet (Pinches off top of Worthington jet)
-        if (impactElapsed >= 95 && impactElapsed <= 560) {
-          const pearlT = (impactElapsed - 95) / 465;
-          // Parabolic arc up and back down into the water surface
+        // Rebounding Pearl Droplet
+        if (impactElapsed >= 90 && impactElapsed <= 520) {
+          const pearlT = (impactElapsed - 90) / 430;
           const arcY =
-            waterSurfaceY -
-            Math.sin(pearlT * Math.PI) * 58 * clampedScale;
+            dropImpactY - Math.sin(pearlT * Math.PI) * 50 * dScale;
           const pearlRadius =
-            (6.8 - Math.abs(pearlT - 0.5) * 2.2) * clampedScale;
+            (6.2 - Math.abs(pearlT - 0.5) * 2.0) * dScale;
           const pearlAlpha =
             pearlT > 0.85 ? (1 - pearlT) / 0.15 : Math.min(1, pearlT * 5);
 
-          drawRealisticWaterDroplet(
-            centerX,
+          drawTransparentWaterDroplet(
+            dropX,
             arcY,
             pearlRadius,
             pearlRadius * 1.05,
@@ -934,147 +1039,144 @@ export function FirstVisitWaterIntro() {
             pearlAlpha
           );
         }
+      }
 
-        // 4. Fine Translucent Splash Particles & Micro Re-Entry Ripples
-        for (let i = 0; i < particles.length; i++) {
-          const p = particles[i];
-          if (impactElapsed < p.delay) continue;
+      // Fine Translucent Splash Particles & Micro Re-Entry Ripples
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        if (elapsed < p.spawnTime) continue;
 
-          const pElapsed = (impactElapsed - p.delay) / 16.67;
-          const gravity = 0.24 * clampedScale;
-          const px = p.x + p.vx * pElapsed;
-          const py =
-            p.y + p.vy * pElapsed + 0.5 * gravity * pElapsed * pElapsed;
+        const pElapsed = (elapsed - p.spawnTime) / 16.67;
+        const gravity = 0.24 * clampedScale;
+        const px = p.x + p.vx * pElapsed;
+        const py =
+          p.y + p.vy * pElapsed + 0.5 * gravity * pElapsed * pElapsed;
 
-          if (py >= waterSurfaceY + 4 * clampedScale) {
-            if (!p.reentered) {
-              p.reentered = true;
-              miniRipples.push({
-                x: px,
-                y: py,
-                radius: 2 * clampedScale,
-                maxRadius: (16 + Math.random() * 14) * clampedScale,
-                alpha: 0.48,
-              });
-            }
-            continue;
+        if (py >= p.impactY + 3 * clampedScale) {
+          if (!p.reentered) {
+            p.reentered = true;
+            miniRipples.push({
+              x: px,
+              y: p.impactY,
+              radius: 2 * clampedScale,
+              maxRadius: (15 + Math.random() * 12) * clampedScale,
+              alpha: 0.52,
+            });
           }
-
-          const fade = Math.max(0, 1 - pElapsed / 28);
-          if (fade <= 0.02) continue;
-
-          ctx.save();
-          ctx.translate(px, py);
-
-          // Tiny droplet body
-          const pGrad = ctx.createRadialGradient(
-            -p.radius * 0.25,
-            -p.radius * 0.25,
-            p.radius * 0.1,
-            0,
-            0,
-            p.radius
-          );
-          pGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
-          pGrad.addColorStop(0.55, `rgba(186, 230, 253, ${0.8 * fade})`);
-          pGrad.addColorStop(1, `rgba(56, 189, 248, ${0.65 * fade})`);
-          ctx.fillStyle = pGrad;
-          ctx.beginPath();
-          ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.restore();
+          continue;
         }
 
-        // Render Secondary Micro Re-Entry Ripples
-        for (let m = miniRipples.length - 1; m >= 0; m--) {
-          const mr = miniRipples[m];
-          mr.radius += 0.65 * clampedScale;
-          mr.alpha *= 0.93;
-          if (mr.alpha <= 0.02 || mr.radius >= mr.maxRadius) {
-            miniRipples.splice(m, 1);
-            continue;
-          }
-          ctx.strokeStyle = `rgba(56, 189, 248, ${mr.alpha})`;
-          ctx.lineWidth = 1 * clampedScale;
-          ctx.beginPath();
-          ctx.ellipse(
-            mr.x,
-            mr.y,
-            mr.radius,
-            mr.radius * 0.3,
-            0,
-            0,
-            Math.PI * 2
-          );
-          ctx.stroke();
+        const fade = Math.max(0, 1 - pElapsed / 28);
+        if (fade <= 0.02) continue;
+
+        ctx.save();
+        ctx.translate(px, py);
+        const pGrad = ctx.createRadialGradient(
+          -p.radius * 0.25,
+          -p.radius * 0.25,
+          p.radius * 0.1,
+          0,
+          0,
+          p.radius
+        );
+        pGrad.addColorStop(0, `rgba(255, 255, 255, ${0.92 * fade})`);
+        pGrad.addColorStop(0.55, `rgba(186, 230, 253, ${0.72 * fade})`);
+        pGrad.addColorStop(1, `rgba(34, 211, 238, ${0.58 * fade})`);
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      for (let m = miniRipples.length - 1; m >= 0; m--) {
+        const mr = miniRipples[m];
+        mr.radius += 0.65 * clampedScale;
+        mr.alpha *= 0.92;
+        if (mr.alpha <= 0.02 || mr.radius >= mr.maxRadius) {
+          miniRipples.splice(m, 1);
+          continue;
         }
+        ctx.strokeStyle = `rgba(34, 211, 238, ${mr.alpha})`;
+        ctx.lineWidth = 1 * clampedScale;
+        ctx.beginPath();
+        ctx.ellipse(
+          mr.x,
+          mr.y,
+          mr.radius,
+          mr.radius * 0.28,
+          0,
+          0,
+          Math.PI * 2
+        );
+        ctx.stroke();
       }
 
       // -----------------------------------------------------------------------
-      // STAGE 2 & STAGE 3: Droplet Formation & Smooth Gravitational Fall
+      // 3. STAGGERED MULTI-DROPLET FORMATION & SMOOTH GRAVITATIONAL FALL
       // -----------------------------------------------------------------------
-      if (elapsed >= 220 && elapsed < IMPACT_TIME) {
-        const baseRadius = 17.5 * clampedScale;
+      for (let dIdx = 0; dIdx < droplets.length; dIdx++) {
+        const d = droplets[dIdx];
+        if (elapsed < d.formStart || elapsed >= d.impactTime) continue;
 
-        if (elapsed < 880) {
-          // Stage 2: Droplet Formation (220ms - 880ms)
-          const formT = (elapsed - 220) / 660;
-          // Smooth elastic condensation curve
+        const dropX = width * d.xRatio;
+        const startDropY = height * d.startYRatio;
+        const impactY = height * d.impactYRatio;
+        const baseR = d.baseRadius * clampedScale;
+
+        if (elapsed < d.fallStart) {
+          // Droplet Condensation & Surface-Tension Swell near Top of Screen
+          const formDuration = d.fallStart - d.formStart;
+          const formT = (elapsed - d.formStart) / formDuration;
           const easeOutBack =
             1 +
-            1.8 * Math.pow(formT - 1, 3) +
-            0.8 * Math.pow(formT - 1, 2);
-          const scaleFactor = Math.max(0.05, Math.min(1.06, easeOutBack));
+            1.7 * Math.pow(formT - 1, 3) +
+            0.75 * Math.pow(formT - 1, 2);
+          const scaleFactor = Math.max(0.08, Math.min(1.05, easeOutBack));
 
-          // Natural surface-tension oscillation as the pendant droplet swells
           const wobble =
-            Math.sin(formT * Math.PI * 3.5) * 0.055 * (1 - formT * 0.5);
-          const rx = baseRadius * scaleFactor * (1 - wobble);
-          const ry = baseRadius * scaleFactor * (1 + wobble * 1.35);
+            Math.sin(formT * Math.PI * 3) * 0.05 * (1 - formT * 0.5);
+          const rx = baseR * scaleFactor * (1 - wobble);
+          const ry = baseR * scaleFactor * (1 + wobble * 1.3);
 
-          // Slight downward sag under its own weight right before detachment
-          const sagY = startDropY + Math.pow(formT, 2.4) * 16 * clampedScale;
-          const pinch = Math.pow(formT, 1.8) * 0.65;
-          const alpha = Math.min(1, formT * 2.2);
+          const sagY = startDropY + Math.pow(formT, 2.3) * 14 * clampedScale;
+          const pinch = Math.pow(formT, 1.8) * 0.62;
+          const alpha = Math.min(1, formT * 2.4);
 
-          drawRealisticWaterDroplet(centerX, sagY, rx, ry, pinch, alpha);
+          drawTransparentWaterDroplet(dropX, sagY, rx, ry, pinch, alpha);
         } else {
-          // Stage 3: Smooth Droplet Fall (880ms - 1280ms)
-          const fallT = (elapsed - 880) / (IMPACT_TIME - 880);
-          // Natural gravitational acceleration curve
+          // Smooth Gravitational Acceleration Downward Over Live Website
+          const fallDuration = d.impactTime - d.fallStart;
+          const fallT = (elapsed - d.fallStart) / fallDuration;
           const fallEase = Math.pow(fallT, 2.12);
 
-          const fallStartY = startDropY + 16 * clampedScale;
-          const currentY =
-            fallStartY + (waterSurfaceY - fallStartY) * fallEase;
+          const fallStartY = startDropY + 14 * clampedScale;
+          const currentY = fallStartY + (impactY - fallStartY) * fallEase;
 
-          // Volume-conserving aerodynamic teardrop elongation
-          const stretch = 1 + fallT * 0.32;
-          const rx = baseRadius * (1 / Math.sqrt(stretch));
-          const ry = baseRadius * stretch;
-          const pinch = 0.65 + fallT * 0.35;
+          const stretch = 1 + fallT * 0.3;
+          const rx = baseR * (1 / Math.sqrt(stretch));
+          const ry = baseR * stretch;
+          const pinch = 0.62 + fallT * 0.36;
 
-          // Subtle trailing micro-satellite droplet left behind at detachment
-          if (fallT < 0.72) {
-            const trailProgress = fallT / 0.72;
+          // Subtle trailing micro-droplet pinched off behind falling droplet
+          if (fallT < 0.78) {
+            const trailProg = fallT / 0.78;
             const trailY =
               fallStartY +
-              (currentY - fallStartY) * Math.pow(trailProgress, 1.55) -
-              ry * 1.65;
-            const trailR =
-              baseRadius * 0.24 * (1 - trailProgress * 0.65);
-            drawRealisticWaterDroplet(
-              centerX,
+              (currentY - fallStartY) * Math.pow(trailProg, 1.55) -
+              ry * 1.6;
+            const trailR = baseR * 0.25 * (1 - trailProg * 0.6);
+            drawTransparentWaterDroplet(
+              dropX,
               trailY,
               trailR,
               trailR * 1.15,
               0.2,
-              (1 - trailProgress) * 0.75
+              (1 - trailProg) * 0.78
             );
           }
 
-          drawRealisticWaterDroplet(centerX, currentY, rx, ry, pinch, 1);
+          drawTransparentWaterDroplet(dropX, currentY, rx, ry, pinch, 1);
         }
       }
 
@@ -1087,8 +1189,9 @@ export function FirstVisitWaterIntro() {
     return () => {
       window.cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
-      window.removeEventListener('pointerdown', unlockAudio);
-      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('pointerdown', unlockInteraction);
+      window.removeEventListener('touchstart', unlockInteraction);
+      window.removeEventListener('keydown', unlockInteraction);
       audio.dispose();
     };
   }, [visible]);
@@ -1098,13 +1201,13 @@ export function FirstVisitWaterIntro() {
   return (
     <div
       aria-hidden="true"
-      className={`fixed inset-0 z-[100] bg-white select-none overflow-hidden transition-opacity duration-450 ease-out ${
-        fadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
+      className={`fixed inset-0 z-[90] bg-transparent pointer-events-none select-none overflow-hidden transition-opacity duration-400 ease-out ${
+        fadingOut ? 'opacity-0' : 'opacity-100'
       }`}
     >
       <canvas
         ref={canvasRef}
-        className="block w-full h-full bg-white"
+        className="block w-full h-full bg-transparent pointer-events-none"
       />
     </div>
   );

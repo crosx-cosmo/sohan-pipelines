@@ -15,12 +15,15 @@ import {
   User,
   Copy,
   Check,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SparePartImage } from '@/components/spare-part-image';
 import { useCart } from '@/lib/cart-context';
+import { useLanguage } from '@/lib/language-context';
 import { buildCartWhatsAppMessage, getCartWhatsAppUrl } from '@/lib/whatsapp-checkout';
+import { downloadCartQuotationPdf, generateQuotationRef } from '@/lib/pdf-quotation';
 import { cn } from '@/lib/utils';
 import { luxuryEasing } from '@/lib/motion';
 
@@ -37,9 +40,13 @@ export function CartDrawer() {
     hasUnpricedItems,
   } = useCart();
 
+  const { t, isBn } = useLanguage();
+
   const [customerName, setCustomerName] = React.useState('');
+  const [customerPhone, setCustomerPhone] = React.useState('');
   const [deliveryArea, setDeliveryArea] = React.useState('');
   const [additionalNotes, setAdditionalNotes] = React.useState('');
+  const [quoteRefId, setQuoteRefId] = React.useState<string>('');
   const [showCustomerFields, setShowCustomerFields] = React.useState(false);
   const [showMessagePreview, setShowMessagePreview] = React.useState(false);
   const [copiedSummary, setCopiedSummary] = React.useState(false);
@@ -70,10 +77,12 @@ export function CartDrawer() {
   const customerInfo = React.useMemo(
     () => ({
       customerName: customerName.trim() || undefined,
+      customerPhone: customerPhone.trim() || undefined,
       deliveryArea: deliveryArea.trim() || undefined,
       additionalNotes: additionalNotes.trim() || undefined,
+      referenceId: quoteRefId || undefined,
     }),
-    [customerName, deliveryArea, additionalNotes]
+    [customerName, customerPhone, deliveryArea, additionalNotes, quoteRefId]
   );
 
   const formattedWhatsAppMessage = React.useMemo(
@@ -86,13 +95,40 @@ export function CartDrawer() {
     [items, customerInfo]
   );
 
+  const handleDownloadPdfQuote = () => {
+    if (items.length === 0) return;
+    const activeRef = quoteRefId || generateQuotationRef('QT');
+    if (!quoteRefId) {
+      setQuoteRefId(activeRef);
+    }
+    const { filename, referenceId } = downloadCartQuotationPdf(items, {
+      ...customerInfo,
+      referenceId: activeRef,
+    });
+    toast.success(
+      isBn
+        ? `অফিসিয়াল PDF কোটাশন ডাউনলোড হয়েছে (${referenceId})`
+        : `Official PDF Quotation Downloaded (${referenceId})`,
+      {
+        description: isBn
+          ? `ফাইল: ${filename} — আপনি এটি হোয়াটসঅ্যাপেও শেয়ার করতে পারেন।`
+          : `Saved as ${filename}. Ready to share on WhatsApp (+91 93828 82517).`,
+      }
+    );
+  };
+
   const handleCopySummary = async () => {
     try {
       await navigator.clipboard.writeText(formattedWhatsAppMessage);
       setCopiedSummary(true);
-      toast.success('Order summary copied to clipboard', {
-        description: 'You can paste this list directly into WhatsApp or SMS.',
-      });
+      toast.success(
+        isBn ? 'অর্ডার তালিকা কপি করা হয়েছে' : 'Order summary copied to clipboard',
+        {
+          description: isBn
+            ? 'আপনি এটি সরাসরি হোয়াটসঅ্যাপ বা মেসেজে পেস্ট করতে পারেন।'
+            : 'You can paste this list directly into WhatsApp or SMS.',
+        }
+      );
       setTimeout(() => setCopiedSummary(false), 2500);
     } catch {
       toast.error('Unable to copy automatically');
@@ -132,10 +168,10 @@ export function CartDrawer() {
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base text-foreground leading-tight">
-                    Your Parts Cart
+                    {t('yourPartsCart')}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'} selected
+                    {totalItemsCount} {t('itemsSelected')}
                   </p>
                 </div>
               </div>
@@ -148,7 +184,7 @@ export function CartDrawer() {
                     onClick={clearCart}
                     className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
                   >
-                    Clear All
+                    {t('clearAll')}
                   </Button>
                 )}
                 <Button
@@ -172,10 +208,10 @@ export function CartDrawer() {
                   </div>
                   <div>
                     <h4 className="font-display font-bold text-base text-foreground">
-                      Your Cart is Empty
+                      {t('cartEmptyTitle')}
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
-                      Browse our spare parts catalog and add genuine fittings, pipes, or valves to your inquiry.
+                      {t('cartEmptyDesc')}
                     </p>
                   </div>
                   <Button
@@ -183,7 +219,7 @@ export function CartDrawer() {
                     className="font-semibold text-xs h-9.5 px-4 rounded-xl shadow-xs"
                   >
                     <Link href="/spare-parts" onClick={closeCart}>
-                      Browse Spare Parts
+                      {t('browseSpareParts')}
                     </Link>
                   </Button>
                 </div>
@@ -296,7 +332,7 @@ export function CartDrawer() {
                   >
                     <span className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-primary" />
-                      <span>Add Your Name &amp; Delivery Location (Optional)</span>
+                      <span>{t('addCustomerDetailsOptional')}</span>
                     </span>
                     <span className="text-muted-foreground text-[10px]">
                       {showCustomerFields ? 'Hide' : 'Add'}
@@ -310,21 +346,35 @@ export function CartDrawer() {
                       exit={{ opacity: 0, height: 0 }}
                       className="p-3 mt-2 rounded-xl border border-border/60 bg-muted/20 space-y-2.5 text-xs"
                     >
-                      <div>
-                        <label className="text-[10px] font-semibold text-muted-foreground block mb-1">
-                          Customer Name
-                        </label>
-                        <Input
-                          type="text"
-                          placeholder="e.g. Subhajit Mondal"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          className="h-8.5 text-xs rounded-lg"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground block mb-1">
+                            {t('customerNameLabel')}
+                          </label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. Subhajit Mondal"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            className="h-8.5 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-muted-foreground block mb-1">
+                            {t('customerPhoneLabel')}
+                          </label>
+                          <Input
+                            type="tel"
+                            placeholder="e.g. 9876543210"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            className="h-8.5 text-xs rounded-lg"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold text-muted-foreground block mb-1">
-                          Delivery Locality / Town
+                          {t('deliveryLocalityLabel')}
                         </label>
                         <Input
                           type="text"
@@ -336,7 +386,7 @@ export function CartDrawer() {
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold text-muted-foreground block mb-1">
-                          Special Specification / Pipe Size Notes
+                          {t('specialNotesLabel')}
                         </label>
                         <Input
                           type="text"
@@ -357,12 +407,18 @@ export function CartDrawer() {
               <div className="p-4 sm:p-5 border-t border-border/70 bg-card space-y-3">
                 {/* Summary Table */}
                 <div className="space-y-1.5 text-xs">
+                  {quoteRefId && (
+                    <div className="flex items-center justify-between text-[11px] font-mono text-primary bg-primary/5 px-2.5 py-1 rounded-lg border border-primary/20">
+                      <span>Official Quote Ref:</span>
+                      <span className="font-bold">{quoteRefId}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Selected Items</span>
+                    <span>{t('selectedItemsLabel')}</span>
                     <span className="font-mono font-medium">{totalItemsCount} units</span>
                   </div>
                   <div className="flex items-center justify-between text-foreground font-semibold">
-                    <span>Estimated Subtotal</span>
+                    <span>{t('estimatedSubtotalLabel')}</span>
                     <span className="font-mono text-base font-bold text-primary">
                       ₹{subtotal.toLocaleString('en-IN')}
                     </span>
@@ -390,7 +446,7 @@ export function CartDrawer() {
                   </div>
                 </div>
 
-                {/* Primary WhatsApp Checkout Button (Native Anchor) */}
+                {/* Primary WhatsApp Checkout + Official PDF Quotation Download */}
                 <div className="flex flex-col gap-2">
                   <Button
                     asChild
@@ -403,37 +459,52 @@ export function CartDrawer() {
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2"
                     >
-                      <MessageCircle className="h-4 w-4" />
-                      <span>Send Cart on WhatsApp to Confirm</span>
+                      <MessageCircle className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{t('sendCartOnWhatsapp')}</span>
                     </a>
                   </Button>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopySummary}
-                    className="w-full text-xs font-semibold h-8.5 rounded-xl border-border/80"
-                  >
-                    {copiedSummary ? (
-                      <>
-                        <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                        <span>Summary Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="mr-1.5 h-3.5 w-3.5" />
-                        <span>Copy Enquiry List</span>
-                      </>
-                    )}
-                  </Button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadPdfQuote}
+                      className="w-full text-xs font-semibold h-9.5 rounded-xl border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                    >
+                      <FileDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{t('downloadOfficialPdfQuote')}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopySummary}
+                      className="w-full text-xs font-semibold h-9.5 rounded-xl border-border/80"
+                    >
+                      {copiedSummary ? (
+                        <>
+                          <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{t('summaryCopied')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{t('copyEnquiryList')}</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Notice & Guarantees */}
                 <div className="flex items-start gap-2 text-[10px] text-muted-foreground leading-relaxed pt-0.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span>
-                    Sending this inquiry connects you directly with our parts counter team. Final stock, contractor discounts, and delivery/pickup will be confirmed with you.
+                    {isBn
+                      ? 'এই তালিকা পাঠালে সরাসরি আমাদের পার্টস কাউন্টার টিমের সাথে হোয়াটসঅ্যাপে যুক্ত হবেন (+91 93828 82517)।'
+                      : 'Sending this inquiry connects you directly with our parts counter team on WhatsApp (+91 93828 82517).'}
                   </span>
                 </div>
               </div>

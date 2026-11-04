@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 import {
   ArrowRight,
   Phone,
@@ -16,15 +17,26 @@ import {
   Search,
   ClipboardCheck,
   Award,
+  FileDown,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomSelect } from '@/components/ui/custom-select';
 import { businessInfo } from '@/lib/business-info';
+import { useLanguage } from '@/lib/language-context';
+import {
+  downloadOfficialPdf,
+  buildQuotationWhatsAppUrl,
+  generateQuotationRef,
+} from '@/lib/pdf-quotation';
 import {
   fetchLiveServiceAreas,
   getCachedServiceAreas,
+  fetchLiveServices,
+  getCachedServices,
   type DbServiceArea,
+  type DbService,
 } from '@/lib/supabase-data';
 import { HeroPlumbingGallery } from '@/components/hero-plumbing-gallery';
 import { BrandPartnersMarquee } from '@/components/brand-partners-marquee';
@@ -32,8 +44,13 @@ import { luxuryEasing, fadeUpVariants } from '@/lib/motion';
 
 export function HeroSection() {
   const router = useRouter();
+  const { t, isBn } = useLanguage();
+
   const [areas, setAreas] = React.useState<DbServiceArea[]>(
     () => getCachedServiceAreas() ?? []
+  );
+  const [services, setServices] = React.useState<DbService[]>(
+    () => getCachedServices() ?? []
   );
   const [loadingAreas, setLoadingAreas] = React.useState(
     () => !getCachedServiceAreas()
@@ -42,9 +59,14 @@ export function HeroSection() {
     () => getCachedServiceAreas()?.[0]?.locality ?? ''
   );
   const [quickBookingRef, setQuickBookingRef] = React.useState('');
-  const [activeQuickTab, setActiveQuickTab] = React.useState<'book' | 'track'>(
-    'book'
-  );
+  const [selectedQuoteServiceId, setSelectedQuoteServiceId] =
+    React.useState<string>(() => getCachedServices()?.[0]?.id ?? '');
+  const [quoteCustomerMeta, setQuoteCustomerMeta] = React.useState('');
+  const [lastGeneratedWhatsappUrl, setLastGeneratedWhatsappUrl] =
+    React.useState<string | null>(null);
+  const [activeQuickTab, setActiveQuickTab] = React.useState<
+    'book' | 'track' | 'quote'
+  >('book');
 
   React.useEffect(() => {
     let active = true;
@@ -61,6 +83,15 @@ export function HeroSection() {
         setQuickTown('');
       }
       setLoadingAreas(false);
+    });
+    fetchLiveServices().then(({ data }) => {
+      if (!active) return;
+      setServices(data);
+      if (data.length > 0) {
+        setSelectedQuoteServiceId((prev) =>
+          prev && data.some((s) => s.id === prev) ? prev : data[0].id
+        );
+      }
     });
     return () => {
       active = false;
@@ -83,6 +114,18 @@ export function HeroSection() {
     [areas]
   );
 
+  const quoteServiceOptions = React.useMemo(
+    () =>
+      services.map((srv) => ({
+        key: srv.id,
+        value: srv.id,
+        label: `${srv.name} — Starting ₹${srv.price}`,
+        description: `${srv.duration || 'Same-Day Slot'} · Upfront Written Estimate`,
+        badge: `₹${srv.price}`,
+      })),
+    [services]
+  );
+
   const handleQuickAction = (e: React.FormEvent) => {
     e.preventDefault();
     if (activeQuickTab === 'book') {
@@ -91,18 +134,54 @@ export function HeroSection() {
       } else {
         router.push('/book');
       }
-    } else {
+    } else if (activeQuickTab === 'track') {
       const clean = quickBookingRef.trim().toUpperCase();
       if (clean) {
         router.push(`/find-booking?id=${encodeURIComponent(clean)}`);
       } else {
         router.push('/find-booking');
       }
+    } else if (activeQuickTab === 'quote') {
+      const chosenService =
+        services.find((s) => s.id === selectedQuoteServiceId) || services[0];
+      const refId = generateQuotationRef('EST');
+      const payload = {
+        referenceId: refId,
+        documentType: 'SERVICE_ESTIMATE' as const,
+        customerName: quoteCustomerMeta.trim() || 'Valued WhatsApp Customer',
+        customerArea: quickTown || 'West Medinipur (PIN 721451)',
+        items: [
+          {
+            name: chosenService
+              ? chosenService.name
+              : 'Comprehensive Plumbing & Pipeline Service Visit',
+            skuOrCode: chosenService?.slug?.toUpperCase() || 'SRV-STD',
+            categoryOrMeta: chosenService?.duration || 'On-Site Inspection',
+            quantity: 1,
+            unitPrice: chosenService?.price ? Number(chosenService.price) : 199,
+          },
+        ],
+      };
+
+      const { filename } = downloadOfficialPdf(payload);
+      const waUrl = buildQuotationWhatsAppUrl(payload);
+      setLastGeneratedWhatsappUrl(waUrl);
+
+      toast.success(
+        isBn
+          ? `অফিসিয়াল PDF কোটাশন ডাউনলোড হয়েছে (${refId})`
+          : `Official PDF Estimate Downloaded (${refId})`,
+        {
+          description: isBn
+            ? `${filename} সেভ হয়েছে। এবার হোয়াটসঅ্যাপে পাঠিয়ে কনফার্ম করুন।`
+            : `Saved ${filename}. Tap "Send Quote on WhatsApp" below to confirm your deal.`,
+        }
+      );
     }
   };
 
   return (
-    <section className="relative w-full max-w-full overflow-x-hidden pt-20 sm:pt-24 pb-12 sm:pb-14 lg:pt-28 lg:pb-16 border-b border-border/60">
+    <section className="relative w-full max-w-full overflow-x-hidden pt-20 sm:pt-24 lg:pt-30 pb-12 sm:pb-14 lg:pb-16 border-b border-border/60">
       {/* Precision Blueprint Grid & Subtle Atmospheric Radial Lighting */}
       <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
         <div className="absolute inset-0 bg-grid-blueprint opacity-[0.06] dark:opacity-[0.12]" />
@@ -122,13 +201,13 @@ export function HeroSection() {
             {/* Clean Editorial Eyebrow with Verified Review Link */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] sm:text-xs font-semibold text-primary">
               <span className="uppercase tracking-[0.065em]">
-                South Bengal Engineering Division
+                {t('heroDivision')}
               </span>
               <span className="text-border" aria-hidden="true">
                 ·
               </span>
               <span className="text-muted-foreground font-normal">
-                Established {businessInfo.established}
+                {t('heroEstablished')} {businessInfo.established}
               </span>
               <span className="text-border" aria-hidden="true">
                 ·
@@ -138,36 +217,32 @@ export function HeroSection() {
                 className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-primary transition-colors duration-150"
               >
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                <span>Work-Verified Reviews</span>
+                <span>{t('heroVerifiedReviews')}</span>
               </Link>
             </div>
 
             {/* Display Headline with High-Contrast Editorial Authority */}
             <h1 className="font-display text-[1.75rem] sm:text-4xl md:text-5xl lg:text-[2.85rem] xl:text-[3.35rem] font-bold tracking-tight sm:tracking-[-0.028em] text-foreground leading-[1.12] sm:leading-[1.08] text-balance break-words">
-              Precision Pipeline Engineering &amp;{' '}
+              {t('heroHeadlinePart1')}{' '}
               <span className="text-primary">
-                Master Plumbing Solutions.
+                {t('heroHeadlineHighlight')}
               </span>
             </h1>
 
             {/* Narrative Prose */}
             <p className="text-sm sm:text-base lg:text-[1.05rem] text-muted-foreground leading-relaxed max-w-2xl text-pretty font-normal tracking-[0.002em]">
-              SOHAN PIPELINES delivers end-to-end plumbing engineering across
-              West Medinipur and surrounding regions—combining genuine Astral
-              &amp; Supreme spare parts counter sales with hydrostatic
-              pressure-tested installations, concealed leak detection, and
-              dependable local dispatch.
+              {t('heroDescription')}
             </p>
 
-            {/* Primary Conversion Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 w-full">
+            {/* Primary Conversion Controls — Balanced 2-Row Mobile / 3-Col Desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1 w-full">
               <Button
                 asChild
                 size="lg"
-                className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-4 rounded-xl shadow-md shadow-primary/25 group w-full justify-center"
+                className="col-span-2 sm:col-span-1 font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-4 rounded-xl shadow-md shadow-primary/25 group w-full justify-center"
               >
                 <Link href="/book">
-                  <span className="truncate">Book Service Online</span>
+                  <span className="truncate">{t('bookServiceOnline')}</span>
                   <ArrowRight className="ml-1.5 h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -176,11 +251,13 @@ export function HeroSection() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-4 rounded-xl border-border/80 hover:bg-muted/60 w-full justify-center"
+                className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-3 sm:px-4 rounded-xl border-border/80 hover:bg-muted/60 w-full justify-center"
               >
                 <a href={`tel:${businessInfo.phone}`}>
                   <Phone className="mr-1.5 h-4 w-4 text-primary shrink-0" />
-                  <span className="truncate">Call {businessInfo.phoneDisplay}</span>
+                  <span className="truncate">
+                    {t('heroCallPrefix')} {businessInfo.phoneDisplay}
+                  </span>
                 </a>
               </Button>
 
@@ -188,7 +265,7 @@ export function HeroSection() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-4 rounded-xl border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/60 w-full justify-center shadow-xs transition-colors"
+                className="font-semibold text-xs sm:text-[13px] h-11 sm:h-12 px-3 sm:px-4 rounded-xl border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/60 w-full justify-center shadow-xs transition-colors"
               >
                 <a
                   href={`https://wa.me/919382882517?text=${encodeURIComponent(
@@ -198,44 +275,54 @@ export function HeroSection() {
                   rel="noopener noreferrer"
                 >
                   <MessageCircle className="mr-1.5 h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="truncate">WhatsApp Desk</span>
+                  <span className="truncate">{t('heroWhatsappDesk')}</span>
                 </a>
               </Button>
             </div>
 
-            {/* Interactive Quick Dispatch & Booking Console */}
+            {/* Interactive Quick Dispatch, Tracking & Official PDF Quotation Console */}
             <div className="relative z-30 w-full max-w-full rounded-2xl border border-border/80 bg-card/90 backdrop-blur-sm p-3.5 sm:p-4 shadow-crisp-sm space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-                <div className="grid grid-cols-2 sm:flex items-center gap-1.5 w-full sm:w-auto">
+                <div className="grid grid-cols-3 sm:flex items-center gap-1 sm:gap-1.5 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setActiveQuickTab('book')}
-                    className={`px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer truncate text-center ${
+                    className={`px-1.5 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold transition-colors cursor-pointer truncate text-center ${
                       activeQuickTab === 'book'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted/40 sm:bg-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Instant Area Dispatch
+                    {t('heroTabDispatch')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveQuickTab('track')}
-                    className={`px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer truncate text-center ${
+                    className={`px-1.5 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold transition-colors cursor-pointer truncate text-center ${
                       activeQuickTab === 'track'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted/40 sm:bg-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
-                    Track / Review Order
+                    {t('heroTabTrack')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveQuickTab('quote')}
+                    className={`px-1.5 sm:px-3 py-1.5 sm:py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold transition-colors cursor-pointer truncate text-center ${
+                      activeQuickTab === 'quote'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted/40 sm:bg-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {t('heroTabQuote')}
                   </button>
                 </div>
                 {!loadingAreas && areas.length > 0 && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  <span className="hidden xl:inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                     <span>
-                      {areas.length} Service{' '}
-                      {areas.length === 1 ? 'Area' : 'Areas'} Active
+                      {areas.length} {t('heroAreasActive')}
                     </span>
                   </span>
                 )}
@@ -245,7 +332,7 @@ export function HeroSection() {
                 onSubmit={handleQuickAction}
                 className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full min-w-0"
               >
-                {activeQuickTab === 'book' ? (
+                {activeQuickTab === 'book' && (
                   <>
                     <div className="w-full min-w-0 sm:flex-1">
                       <CustomSelect
@@ -271,19 +358,21 @@ export function HeroSection() {
                       className="h-10 px-4 rounded-xl text-xs font-semibold shrink-0 w-full sm:w-auto justify-center"
                     >
                       {quickTown
-                        ? `Schedule in ${quickTown}`
-                        : 'Schedule Service'}
+                        ? `${t('heroScheduleIn')} ${quickTown}`
+                        : t('heroScheduleService')}
                       <ArrowRight className="ml-1.5 h-3.5 w-3.5 shrink-0" />
                     </Button>
                   </>
-                ) : (
+                )}
+
+                {activeQuickTab === 'track' && (
                   <>
                     <div className="relative w-full min-w-0 sm:flex-1">
                       <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                       <Input
                         value={quickBookingRef}
                         onChange={(e) => setQuickBookingRef(e.target.value)}
-                        placeholder="Enter Booking ID (e.g. SP-2026...)"
+                        placeholder={t('heroEnterBookingId')}
                         className="h-10 pl-8.5 rounded-xl font-mono text-xs uppercase w-full"
                       />
                     </div>
@@ -293,9 +382,65 @@ export function HeroSection() {
                       className="h-10 px-4 rounded-xl text-xs font-semibold shrink-0 w-full sm:w-auto justify-center"
                     >
                       <ClipboardCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                      Track Status
+                      {t('heroTrackStatus')}
                     </Button>
                   </>
+                )}
+
+                {activeQuickTab === 'quote' && (
+                  <div className="w-full space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="w-full min-w-0 sm:flex-1">
+                        <CustomSelect
+                          id="hero-instant-pdf-quote"
+                          value={selectedQuoteServiceId}
+                          onChange={(val) => setSelectedQuoteServiceId(val)}
+                          options={quoteServiceOptions}
+                          disabled={quoteServiceOptions.length === 0}
+                          placeholder={t('heroQuoteSelectPlaceholder')}
+                          aria-label="Select service for PDF estimate"
+                          size="md"
+                          icon={<Wrench className="h-4 w-4" />}
+                          buttonClassName="h-10 bg-background/95"
+                        />
+                      </div>
+                      <Input
+                        value={quoteCustomerMeta}
+                        onChange={(e) => setQuoteCustomerMeta(e.target.value)}
+                        placeholder={t('heroQuoteCustomerPlaceholder')}
+                        className="h-10 rounded-xl text-xs sm:w-48 bg-background/95"
+                      />
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="h-10 px-4 rounded-xl text-xs font-semibold flex-1 justify-center"
+                      >
+                        <FileDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{t('heroQuoteGenerateBtn')}</span>
+                      </Button>
+
+                      {lastGeneratedWhatsappUrl && (
+                        <Button
+                          asChild
+                          size="sm"
+                          className="h-10 px-3.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 justify-center"
+                        >
+                          <a
+                            href={lastGeneratedWhatsappUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageCircle className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">
+                              {isBn ? 'হোয়াটসঅ্যাপে পাঠান' : 'Send Quote on WhatsApp'}
+                            </span>
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </form>
             </div>
@@ -305,40 +450,40 @@ export function HeroSection() {
               <div className="h-full rounded-xl border border-border/60 bg-card/60 p-3 flex flex-col justify-between gap-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
                   <ShieldCheck className="h-4 w-4 shrink-0" />
-                  <span className="truncate">ISI Certified</span>
+                  <span className="truncate">{t('trustIsiTitle')}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Astral, Supreme &amp; Finolex fittings
+                  {t('trustIsiDesc')}
                 </p>
               </div>
 
               <div className="h-full rounded-xl border border-border/60 bg-card/60 p-3 flex flex-col justify-between gap-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-primary font-bold">
                   <Clock className="h-4 w-4 shrink-0" />
-                  <span className="truncate">Same-Day Slots</span>
+                  <span className="truncate">{t('trustSameDayTitle')}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Scheduled &amp; emergency visits
+                  {t('trustSameDayDesc')}
                 </p>
               </div>
 
               <div className="h-full rounded-xl border border-border/60 bg-card/60 p-3 flex flex-col justify-between gap-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span className="truncate">₹0 Advance</span>
+                  <span className="truncate">{t('trustZeroAdvanceTitle')}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Pay after pressure inspection
+                  {t('trustZeroAdvanceDesc')}
                 </p>
               </div>
 
               <div className="h-full rounded-xl border border-border/60 bg-card/60 p-3 flex flex-col justify-between gap-1 min-w-0">
                 <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold">
                   <Award className="h-4 w-4 shrink-0" />
-                  <span className="truncate">12-Mo Warranty</span>
+                  <span className="truncate">{t('trustWarrantyTitle')}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  Guaranteed leak-free joints
+                  {t('trustWarrantyDesc')}
                 </p>
               </div>
             </div>

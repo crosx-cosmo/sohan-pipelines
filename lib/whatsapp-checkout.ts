@@ -3,8 +3,10 @@ import type { CartItem } from '@/lib/cart-context';
 
 export interface CustomerEnquiryInfo {
   customerName?: string;
+  customerPhone?: string;
   deliveryArea?: string;
   additionalNotes?: string;
+  referenceId?: string;
 }
 
 /**
@@ -22,6 +24,9 @@ export function buildCartWhatsAppMessage(
   const lines: string[] = [];
 
   lines.push('🛠️ *SOHAN PIPELINES & HARDWARE — PARTS ENQUIRY*');
+  if (customerInfo?.referenceId) {
+    lines.push(`🔖 *Official Quote Ref:* \`${customerInfo.referenceId}\``);
+  }
   lines.push('Hello Sohan Pipeline\'s, I would like to check availability and purchase the following plumbing items:');
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -71,11 +76,19 @@ export function buildCartWhatsAppMessage(
   }
 
   // Customer metadata if provided
-  if (customerInfo?.customerName || customerInfo?.deliveryArea || customerInfo?.additionalNotes) {
+  if (
+    customerInfo?.customerName ||
+    customerInfo?.customerPhone ||
+    customerInfo?.deliveryArea ||
+    customerInfo?.additionalNotes
+  ) {
     lines.push('');
     lines.push('👤 *Customer Details:*');
     if (customerInfo.customerName) {
       lines.push(`   • Name: ${customerInfo.customerName.trim()}`);
+    }
+    if (customerInfo.customerPhone) {
+      lines.push(`   • Phone: ${customerInfo.customerPhone.trim()}`);
     }
     if (customerInfo.deliveryArea) {
       lines.push(`   • Locality / Site: ${customerInfo.deliveryArea.trim()}`);

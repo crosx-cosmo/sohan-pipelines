@@ -21,20 +21,7 @@ export const businessInfo = {
   rating: 5.0,
   reviewCount: 0,
   established: 2015,
-  serviceAreas: [] as string[],
-  serviceDistricts: {} as Record<string, string[]>,
 };
-
-export interface TestimonialItem {
-  name: string;
-  role: string;
-  rating: number;
-  text: string;
-  service: string;
-}
-
-// Dummy testimonials removed — reviews are exclusively sourced from verified work bookings.
-export const testimonials: TestimonialItem[] = [];
 
 export const bookingTimeSlots = [
   '10:00 AM - 11:00 AM',

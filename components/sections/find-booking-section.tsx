@@ -21,6 +21,7 @@ import {
   ArrowRight,
   RotateCw,
   Star,
+  FileDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import {
   urgencyLabel,
 } from '@/lib/booking-status';
 import { findBooking, getLatestLocalBooking, type BookingLookupResult, type LocalBooking } from '@/lib/booking-service';
+import { downloadOfficialPdf } from '@/lib/pdf-quotation';
 
 function FindBookingContent() {
   const searchParams = useSearchParams();
@@ -354,6 +356,46 @@ function FindBookingContent() {
 
               {/* Action Toolbar */}
               <div className="flex flex-wrap items-center gap-2.5 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const { filename } = downloadOfficialPdf({
+                      referenceId: result.bookingId,
+                      documentType: 'BOOKING_VOUCHER',
+                      customerName: result.customerName,
+                      customerPhone: result.phone,
+                      customerAddress: result.address,
+                      customerArea: result.area,
+                      urgencyLabel: urgencyLabel(result.urgency),
+                      scheduledDate: result.scheduledAt
+                        ? new Date(result.scheduledAt).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : undefined,
+                      scheduledTimeSlot: result.preferredTimeSlot || undefined,
+                      notes: `Current Status: ${bookingStatusLabel(result.status)}`,
+                      items: [
+                        {
+                          name: result.serviceName || 'Plumbing Service Work Order',
+                          skuOrCode: result.bookingId,
+                          categoryOrMeta: bookingStatusLabel(result.status),
+                          quantity: 1,
+                          unitPrice: null,
+                        },
+                      ],
+                    });
+                    toast.success(`Official PDF Work Order downloaded (${filename})`);
+                  }}
+                  className="rounded-xl text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                  Download PDF Work Order
+                </Button>
+
                 <Button
                   type="button"
                   variant="outline"

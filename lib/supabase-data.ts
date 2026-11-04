@@ -415,15 +415,15 @@ let inflightSparePartsPromise: Promise<{
 }> | null = null;
 
 export function getCachedServices(): DbService[] | null {
-  return null;
+  return servicesCache?.data ?? null;
 }
 
 export function getCachedServiceAreas(): DbServiceArea[] | null {
-  return null;
+  return areasCache?.data ?? null;
 }
 
 export function getCachedSpareParts(): DbSparePart[] | null {
-  return null;
+  return sparePartsCache?.data ?? null;
 }
 
 export async function fetchLiveServices(

@@ -25,6 +25,7 @@ import {
   Pencil,
   Trash2,
   ImagePlus,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,7 +37,6 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import {
   fetchLiveSpareParts,
-  getCachedSpareParts,
   clearSparePartsCache,
   type DbSparePart,
 } from '@/lib/supabase-data';
@@ -48,6 +48,8 @@ import {
 } from '@/lib/spare-parts-mapping';
 import { useCart } from '@/lib/cart-context';
 import { luxuryEasing } from '@/lib/motion';
+import { useLanguage } from '@/lib/language-context';
+import { downloadOfficialPdf, generateQuotationRef } from '@/lib/pdf-quotation';
 
 type SortOption =
   | 'default'
@@ -111,11 +113,9 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
     Array.isArray(initialParts) && initialParts.length > 0;
 
   const [parts, setParts] = React.useState<DbSparePart[]>(
-    () => getCachedSpareParts() ?? (hasInitialParts ? initialParts : [])
+    () => (hasInitialParts ? initialParts : [])
   );
-  const [loading, setLoading] = React.useState(
-    () => !getCachedSpareParts() && !hasInitialParts
-  );
+  const [loading, setLoading] = React.useState(() => !hasInitialParts);
   const [error, setError] = React.useState<string | null>(null);
 
   // Admin session & upload/edit modal state
@@ -496,6 +496,31 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
       qty
     );
     setCardQuantities((prev) => ({ ...prev, [part.id]: 1 }));
+  };
+
+  const { t } = useLanguage();
+
+  const handleDownloadStorefrontPartPdf = (part: DbSparePart) => {
+    const qty = getCardQuantity(part.id);
+    const ref = generateQuotationRef('QT');
+    const { filename } = downloadOfficialPdf({
+      referenceId: ref,
+      documentType: 'SPARE_PARTS_QUOTE',
+      items: [
+        {
+          name: part.name,
+          skuOrCode: part.sku || undefined,
+          categoryOrMeta: part.category || 'Spare Part',
+          quantity: qty,
+          unitPrice:
+            part.selling_price && Number(part.selling_price) > 0
+              ? Number(part.selling_price)
+              : null,
+        },
+      ],
+      notes: 'Official Hardware Counter Quotation — Valid for 7 Days.',
+    });
+    toast.success(`${t('pdfDownloadedToast')} (${filename})`);
   };
 
   const getDirectWhatsAppUrl = (part: DbSparePart) => {
@@ -1120,25 +1145,38 @@ export function SparePartsSection({ initialParts }: SparePartsSectionProps) {
                           className="flex-1 font-semibold text-xs h-9.5 rounded-xl shadow-xs gap-1.5"
                         >
                           <ShoppingBag className="h-3.5 w-3.5" />
-                          {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+                          {isOutOfStock ? t('unavailable') : t('addToCart')}
                         </Button>
                       </div>
 
-                      <Button
-                        asChild
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-xs font-semibold h-8 rounded-xl border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
-                      >
-                        <a
-                          href={getDirectWhatsAppUrl(part)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadStorefrontPartPdf(part)}
+                          className="w-full text-[11px] font-semibold h-8 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
                         >
-                          <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
-                          Quick WhatsApp Enquiry
-                        </a>
-                      </Button>
+                          <FileDown className="mr-1 h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{t('pdfQuoteShort')}</span>
+                        </Button>
+
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-[11px] font-semibold h-8 rounded-xl border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                        >
+                          <a
+                            href={getDirectWhatsAppUrl(part)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageCircle className="mr-1 h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">WhatsApp</span>
+                          </a>
+                        </Button>
+                      </div>
 
                       {/* Admin Quick Edit / Delete Controls when Admin session is active */}
                       {activeUserEmail && (

@@ -8,14 +8,13 @@ import { cn } from '@/lib/utils';
 interface BrandLogoProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
-  showBadgeOnly?: boolean;
 }
 
 const sizeMap = {
-  sm: { px: 32, box: 'h-8 w-8', text: 'text-xs' },
-  md: { px: 40, box: 'h-10 w-10', text: 'text-sm sm:text-base' },
-  lg: { px: 48, box: 'h-12 w-12', text: 'text-base sm:text-lg' },
-  xl: { px: 64, box: 'h-16 w-16', text: 'text-lg sm:text-xl' },
+  sm: { px: 32, box: 'h-8 w-8' },
+  md: { px: 40, box: 'h-9 w-9 sm:h-10 sm:w-10' },
+  lg: { px: 48, box: 'h-12 w-12' },
+  xl: { px: 64, box: 'h-16 w-16' },
 };
 
 /**

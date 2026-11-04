@@ -16,6 +16,7 @@ import {
   X,
   MessageCircle,
   ClipboardList,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,6 @@ import {
 } from '@/components/ui/card';
 import {
   fetchLiveServices,
-  getCachedServices,
   getServiceCategory,
   getServiceFeatures,
   type DbService,
@@ -38,6 +38,9 @@ import { businessInfo } from '@/lib/business-info';
 import { cn } from '@/lib/utils';
 import { luxuryEasing } from '@/lib/motion';
 import { HowOurServiceWorks } from '@/components/service-estimator';
+import { useLanguage } from '@/lib/language-context';
+import { downloadOfficialPdf, generateQuotationRef } from '@/lib/pdf-quotation';
+import { toast } from 'sonner';
 
 type CategoryFilter =
   | 'all'
@@ -57,10 +60,9 @@ const categories: { id: CategoryFilter; label: string }[] = [
 ];
 
 export function ServicesSection() {
-  const [servicesList, setServicesList] = React.useState<DbService[]>(
-    () => getCachedServices() ?? []
-  );
-  const [loading, setLoading] = React.useState(() => !getCachedServices());
+  const { t, isBn } = useLanguage();
+  const [servicesList, setServicesList] = React.useState<DbService[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [activeCategory, setActiveCategory] =
     React.useState<CategoryFilter>('all');
@@ -70,6 +72,39 @@ export function ServicesSection() {
   const rawPhone = React.useMemo(
     () => businessInfo.phone.replace(/[^0-9]/g, ''),
     []
+  );
+
+  const handleDownloadServicePdf = React.useCallback(
+    (service: DbService, categoryLabel: string) => {
+      const refId = generateQuotationRef('SRV');
+      const { filename } = downloadOfficialPdf({
+        referenceId: refId,
+        documentType: 'SERVICE_ESTIMATE',
+        urgencyLabel: 'Scheduled / Same-Day Dispatch',
+        notes: `${service.description || 'Certified plumbing engineering service.'} Includes on-site inspection and hydrostatic leak verification.`,
+        items: [
+          {
+            name: service.name,
+            skuOrCode: service.slug ? service.slug.toUpperCase() : 'SRV-STD',
+            categoryOrMeta: categoryLabel,
+            quantity: 1,
+            unitPrice: service.price ? Number(service.price) : null,
+          },
+        ],
+      });
+
+      toast.success(
+        isBn
+          ? `সার্ভিস কোটাশন ডাউনলোড হয়েছে (${refId})`
+          : `Service Estimate PDF Downloaded (${refId})`,
+        {
+          description: isBn
+            ? `${filename} সেভ হয়েছে।`
+            : `Saved ${filename} for ${service.name}.`,
+        }
+      );
+    },
+    [isBn]
   );
 
   const loadServices = React.useCallback(async (showLoading = true) => {
@@ -577,21 +612,32 @@ export function ServicesSection() {
                       </div>
 
                       <CardFooter className="p-5 sm:p-6 pt-4 mt-2 border-t border-[#DCE5F2] dark:border-border/60 flex items-center justify-between gap-2">
-                        <div>
-                          <span className="text-[10px] uppercase tracking-wider text-[#475569] dark:text-muted-foreground font-medium block">
+                        <div className="min-w-0">
+                          <span className="text-[10px] uppercase tracking-wider text-[#475569] dark:text-muted-foreground font-medium block truncate">
                             Starting Quote
                           </span>
-                          <p className="text-lg font-extrabold font-mono text-[#071936] dark:text-foreground tabular-nums">
+                          <p className="text-base sm:text-lg font-extrabold font-mono text-[#071936] dark:text-foreground tabular-nums truncate">
                             {formattedPrice}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadServicePdf(service, category)}
+                            title={t('downloadPdfQuote')}
+                            aria-label={`Download PDF Estimate for ${service.name}`}
+                            className="h-9.5 px-2.5 rounded-xl border-[#DCE5F2] dark:border-border text-[#003E9E] dark:text-[#60A5FA] hover:border-[#003E9E]"
+                          >
+                            <FileDown className="h-3.5 w-3.5 shrink-0" />
+                          </Button>
                           <Button
                             asChild
                             variant="outline"
                             size="sm"
-                            className="h-9.5 px-3 rounded-xl border-[#DCE5F2] dark:border-border text-[#071936] dark:text-foreground hover:border-[#003E9E] hover:text-[#003E9E]"
+                            className="h-9.5 px-2.5 rounded-xl border-[#DCE5F2] dark:border-border text-[#071936] dark:text-foreground hover:border-emerald-500/50"
                           >
                             <a
                               href={`https://wa.me/${rawPhone}?text=${encodeURIComponent(
@@ -607,10 +653,10 @@ export function ServicesSection() {
                           <Button
                             asChild
                             size="sm"
-                            className="text-xs font-semibold h-9.5 px-4 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white group/btn shadow-xs whitespace-nowrap"
+                            className="text-xs font-semibold h-9.5 px-3.5 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white group/btn shadow-xs whitespace-nowrap"
                           >
                             <Link href={`/book?service=${service.id}`}>
-                              Book Service
+                              <span>{t('bookService')}</span>
                               <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
                             </Link>
                           </Button>

@@ -25,8 +25,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageToggle } from '@/components/language-toggle';
 import { CartTriggerButton } from '@/components/cart-trigger-button';
 import { businessInfo } from '@/lib/business-info';
+import { useLanguage, type TranslationKey } from '@/lib/language-context';
 import { BrandLogo } from '@/components/brand-logo';
 import {
   fetchLiveServices,
@@ -39,21 +41,38 @@ import {
   drawerBackdropVariants,
 } from '@/lib/motion';
 
-const navLinks = [
-  { href: '/services', label: 'Services', icon: Wrench, description: 'Certified Plumbing & Pipeline Engineering' },
-  { href: '/about', label: 'About', icon: Users, description: 'Master Plumber Experience & Standards' },
-  { href: '/reviews', label: 'Reviews', icon: Star, description: 'Verified Client Feedback & Ratings' },
-  { href: '/service-areas', label: 'Service Areas', icon: MapPin, description: 'Paschim & Purba Medinipur Coverage' },
-  { href: '/find-booking', label: 'Track Booking', icon: Search, description: 'Live Status & Job Verification' },
-  { href: '/contact', label: 'Contact', icon: MessageSquare, description: 'Direct Dispatch & Support Desk' },
-  { href: '/faq', label: 'Help & FAQ', icon: HelpCircle, description: 'Warranty, Rates & Cleanout Procedures' },
-  { href: '/spare-parts', label: 'Spare Parts', icon: Package, description: 'Genuine Hardware & Wholesale Counter' },
+const navLinksConfig: Array<{
+  href: string;
+  labelKey: TranslationKey;
+  descKey: TranslationKey;
+  icon: typeof Wrench;
+}> = [
+  { href: '/services', labelKey: 'navServices', descKey: 'navServicesDesc', icon: Wrench },
+  { href: '/about', labelKey: 'navAbout', descKey: 'navAboutDesc', icon: Users },
+  { href: '/reviews', labelKey: 'navReviews', descKey: 'navReviewsDesc', icon: Star },
+  { href: '/service-areas', labelKey: 'navAreas', descKey: 'navAreasDesc', icon: MapPin },
+  { href: '/find-booking', labelKey: 'navTrack', descKey: 'navTrackDesc', icon: Search },
+  { href: '/contact', labelKey: 'navContact', descKey: 'navContactDesc', icon: MessageSquare },
+  { href: '/faq', labelKey: 'navFaq', descKey: 'navFaqDesc', icon: HelpCircle },
+  { href: '/spare-parts', labelKey: 'navSpareParts', descKey: 'navSparePartsDesc', icon: Package },
 ];
 
 export function SiteHeader() {
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const pathname = usePathname();
+  const { t } = useLanguage();
+
+  const navLinks = React.useMemo(
+    () =>
+      navLinksConfig.map((item) => ({
+        href: item.href,
+        label: t(item.labelKey),
+        description: t(item.descKey),
+        icon: item.icon,
+      })),
+    [t]
+  );
 
   // Warm the in-memory data caches once so SPA navigation across pages is instantaneous
   React.useEffect(() => {
@@ -124,18 +143,16 @@ export function SiteHeader() {
             : 'bg-background/85 dark:bg-background/75 backdrop-blur-md border-b border-border/50'
         )}
       >
-        {/* Top Utility Strip (Desktop Only) */}
-        <div className="hidden md:block border-b border-border/50 bg-muted/30 py-1.5 px-4 sm:px-6 lg:px-8 text-[11px] text-muted-foreground">
+        {/* Top Utility Strip (Large Desktop Only — prevents tablet/mobile desktop-mode clipping) */}
+        <div className="hidden lg:block border-b border-border/50 bg-muted/30 py-1.5 px-4 sm:px-6 lg:px-8 text-[11px] text-muted-foreground">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="inline-flex items-center gap-1.5 font-medium text-foreground whitespace-nowrap">
                 <ShieldCheck className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
-                <span>Plumbing Engineering &amp; Authorized Spare Parts</span>
+                <span>{t('topTagline')}</span>
               </span>
               <span className="text-border" aria-hidden="true">·</span>
-              <span className="truncate">
-                Bahardaltitia, Keshrambha, Dantan (PIN {businessInfo.pincode})
-              </span>
+              <span className="truncate">{t('topLocation')}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
@@ -159,24 +176,24 @@ export function SiteHeader() {
         {/* Main Navigation Bar */}
         <div
           className={cn(
-            'mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 transition-[height] duration-200',
+            'mx-auto flex max-w-7xl items-center justify-between gap-2 sm:gap-4 px-3.5 sm:px-6 lg:px-8 transition-[height] duration-200',
             scrolled ? 'h-14 sm:h-15' : 'h-16'
           )}
         >
           {/* Brand Logo & Wordmark */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl p-1 -m-1"
+            className="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl p-1 -m-1"
           >
             <div className="shrink-0 transition-transform duration-200 group-hover:scale-105 active:scale-95">
               <BrandLogo size="md" />
             </div>
-            <div className="flex flex-col leading-tight">
-              <span className="font-display text-sm sm:text-base font-bold tracking-tight text-foreground whitespace-nowrap group-hover:text-primary transition-colors duration-200">
+            <div className="flex flex-col leading-tight min-w-0">
+              <span className="font-display text-sm sm:text-base font-bold tracking-tight text-foreground truncate group-hover:text-primary transition-colors duration-200">
                 Sohan Pipeline&apos;s
               </span>
-              <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Total Plumbing Solutions
+              <span className="text-[9.5px] sm:text-[11px] font-medium text-muted-foreground truncate">
+                {t('brandSubtitle')}
               </span>
             </div>
           </Link>
@@ -212,24 +229,27 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Action Zone: Cart + Theme Toggle + Book CTA + Mobile Hamburger Trigger */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Action Zone: Language Toggle + Cart + Theme Toggle (sm+) + Book CTA + Mobile Hamburger Trigger */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <LanguageToggle compact />
             <CartTriggerButton />
-            <ThemeToggle />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
 
             {/* Desktop Primary CTA Button */}
             <Button
               asChild
               size="sm"
-              className="hidden sm:inline-flex font-semibold text-xs h-9 px-4 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white shadow-xs group whitespace-nowrap shrink-0"
+              className="hidden md:inline-flex font-semibold text-xs h-9 px-3.5 lg:px-4 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white shadow-xs group whitespace-nowrap shrink-0"
             >
               <Link href="/book">
-                <span>Book Service</span>
+                <span>{t('bookService')}</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </Button>
 
-            {/* Mobile Hamburger Trigger Button (Hidden when drawer is open so there is only 1 close button inside the drawer) */}
+            {/* Mobile Hamburger Trigger Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
@@ -237,7 +257,7 @@ export function SiteHeader() {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation-drawer"
               className={cn(
-                'lg:hidden flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 active:scale-95 transition-all select-none cursor-pointer',
+                'lg:hidden flex h-9.5 w-9.5 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-border/80 bg-card text-foreground hover:bg-muted/60 active:scale-95 transition-all select-none cursor-pointer',
                 mobileMenuOpen && 'opacity-0 pointer-events-none'
               )}
             >
@@ -292,7 +312,7 @@ export function SiteHeader() {
                       Sohan Pipeline&apos;s
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      Total Plumbing Solutions
+                      {t('brandSubtitle')}
                     </span>
                   </div>
                 </Link>
@@ -315,10 +335,10 @@ export function SiteHeader() {
                     <ShieldCheck className="h-4 w-4 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
                     <div>
                       <span className="font-semibold text-foreground block leading-tight">
-                        Emergency Service Active
+                        {t('emergencyActive')}
                       </span>
                       <span className="text-[10px] text-muted-foreground block">
-                        Bahardaltitia, Keshrambha, Dantan (PIN 721451)
+                        {t('topLocation')}
                       </span>
                     </div>
                   </div>
@@ -384,7 +404,15 @@ export function SiteHeader() {
                 <div className="flex items-center justify-between px-1 text-xs font-medium text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                    <span>Display Mode</span>
+                    <span>{t('languageLabel')}</span>
+                  </span>
+                  <LanguageToggle />
+                </div>
+
+                <div className="flex items-center justify-between px-1 text-xs font-medium text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
+                    <span>{t('displayMode')}</span>
                   </span>
                   <ThemeToggle />
                 </div>
@@ -395,7 +423,7 @@ export function SiteHeader() {
                 >
                   <Link href="/book" onClick={() => setMobileMenuOpen(false)}>
                     <Calendar className="mr-2 h-4 w-4" />
-                    Book Service Online
+                    {t('bookServiceOnline')}
                   </Link>
                 </Button>
 
@@ -404,12 +432,12 @@ export function SiteHeader() {
                   className="flex items-center justify-center gap-2 text-xs font-semibold h-10.5 rounded-xl bg-card text-foreground hover:text-primary transition-colors border border-border/80 shadow-xs active:scale-[0.99]"
                 >
                   <Phone className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                  <span>Call Hotline: {businessInfo.phoneDisplay}</span>
+                  <span>{t('callHotline')}: {businessInfo.phoneDisplay}</span>
                 </a>
 
                 <div className="pt-1 text-center">
                   <span className="text-[10px] text-muted-foreground">
-                    HQ: Bahardaltitia, Keshrambha, Dantan · PIN 721451
+                    HQ: {t('topLocation')}
                   </span>
                 </div>
               </div>

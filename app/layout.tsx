@@ -10,6 +10,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { NavigationProgressBar } from '@/components/navigation-progress-bar';
 import { CartProvider } from '@/lib/cart-context';
+import { LanguageProvider } from '@/lib/language-context';
 import { CartDrawer } from '@/components/cart-drawer';
 import { AiAssistantWidget } from '@/components/ai-assistant-widget';
 import { FirstVisitWaterIntro } from '@/components/first-visit-water-intro';
@@ -82,6 +83,7 @@ export const metadata: Metadata = {
     canonical: '/',
     languages: {
       'en-IN': '/',
+      'bn-IN': '/',
     },
   },
   openGraph: {
@@ -134,8 +136,8 @@ export const metadata: Metadata = {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
       { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: '/icon-32.png', type: 'image/png', sizes: '32x32' },
-      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
     shortcut: '/favicon.ico',
     apple: [
@@ -159,16 +161,18 @@ export default function RootLayout({
         </Suspense>
         <SeoStructuredData />
         <ThemeProvider>
-          <CartProvider>
-            <SiteHeader />
-            <div className="flex-1 flex flex-col w-full min-w-0 max-w-full overflow-x-hidden">
-              {children}
-            </div>
-            <SiteFooter />
-            <MobileQuickBar />
-            <CartDrawer />
-            <AiAssistantWidget />
-          </CartProvider>
+          <LanguageProvider>
+            <CartProvider>
+              <SiteHeader />
+              <div className="flex-1 flex flex-col w-full min-w-0 max-w-full overflow-x-hidden">
+                {children}
+              </div>
+              <SiteFooter />
+              <MobileQuickBar />
+              <CartDrawer />
+              <AiAssistantWidget />
+            </CartProvider>
+          </LanguageProvider>
         </ThemeProvider>
         <Toaster position="top-right" richColors />
       </body>

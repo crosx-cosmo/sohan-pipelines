@@ -65,21 +65,21 @@ export function PageHeader({
         />
       )}
       <div className="absolute inset-0 pointer-events-none opacity-35 bg-[radial-gradient(#003E9E_1px,transparent_1px)] [background-size:24px_24px]" />
-      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-9 sm:py-11 lg:py-14">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-14">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 lg:gap-8">
           <div className="max-w-3xl min-w-0">
             {/* Breadcrumb Navigation for SEO & UX */}
             {breadcrumbPath && (
               <nav
                 aria-label="Breadcrumb"
-                className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3.5"
+                className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mb-3"
               >
                 <Link href="/" className="hover:text-primary transition-colors shrink-0">
                   Home
                 </Link>
                 <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span
-                  className="text-foreground font-medium truncate"
+                  className="text-foreground font-medium truncate max-w-[240px] sm:max-w-none"
                   aria-current="page"
                 >
                   {label}

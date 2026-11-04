@@ -29,6 +29,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Star,
+  FileDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,8 @@ import { cn } from '@/lib/utils';
 import { URGENCY_LEVELS, urgencyLabel, type UrgencyLevel } from '@/lib/booking-status';
 import { findOrCreateCustomer, createBooking } from '@/lib/booking-service';
 import { CustomSelect } from '@/components/ui/custom-select';
+import { downloadOfficialPdf } from '@/lib/pdf-quotation';
+import { useLanguage } from '@/lib/language-context';
 
 type BookingStep = 'service' | 'urgency' | 'details' | 'location' | 'schedule' | 'confirm' | 'success';
 
@@ -268,12 +271,12 @@ function BookingWizard() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         {step !== 'success' && (
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-2 overflow-x-auto">
+            <div className="flex items-center justify-between gap-1 sm:gap-2 mb-2.5">
               {['Service', 'Urgency', 'Details', 'Location', 'Schedule', 'Confirm'].map((label, i) => (
                 <div
                   key={label}
                   className={cn(
-                    'flex items-center gap-2 text-sm font-medium transition-colors shrink-0',
+                    'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium transition-colors shrink-0',
                     i <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'
                   )}
                 >
@@ -953,6 +956,49 @@ function BookingWizard() {
                     <MessageSquare className="mr-2 h-4 w-4" />
                     Confirm via WhatsApp
                   </a>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-primary/40 text-primary hover:bg-primary/10 font-semibold"
+                  onClick={() => {
+                    const { filename } = downloadOfficialPdf({
+                      referenceId: bookingId,
+                      documentType: 'BOOKING_VOUCHER',
+                      customerName: data.name,
+                      customerPhone: data.phone,
+                      customerAddress: data.address,
+                      customerArea: data.area,
+                      urgencyLabel: data.urgency ? urgencyLabel(data.urgency) : 'Standard',
+                      scheduledDate: data.date
+                        ? data.date.toLocaleDateString('en-IN', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : undefined,
+                      scheduledTimeSlot: data.timeSlot || undefined,
+                      notes: data.notes || 'Confirmed Online Plumbing Service Booking.',
+                      items: [
+                        {
+                          name: data.service?.name || 'Plumbing Service Visit',
+                          skuOrCode: bookingId,
+                          categoryOrMeta: data.urgency ? urgencyLabel(data.urgency) : 'Service Dispatch',
+                          quantity: 1,
+                          unitPrice:
+                            data.service?.startingPrice && data.service.startingPrice > 0
+                              ? data.service.startingPrice
+                              : null,
+                        },
+                      ],
+                    });
+                    toast.success(`Official Booking Voucher downloaded (${filename})`);
+                  }}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download PDF Voucher
                 </Button>
 
                 <Button variant="outline" onClick={() => window.print()}>

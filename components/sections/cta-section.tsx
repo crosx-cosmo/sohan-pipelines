@@ -6,8 +6,11 @@ import { motion } from 'motion/react';
 import { ArrowRight, Phone, Clock, ShieldCheck, CheckCircle2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { businessInfo } from '@/lib/business-info';
+import { useLanguage } from '@/lib/language-context';
 
 export function CtaSection() {
+  const { t } = useLanguage();
+
   return (
     <section className="py-16 lg:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -27,16 +30,15 @@ export function CtaSection() {
           <div className="relative max-w-3xl mx-auto space-y-6">
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.065em] text-white">
               <CheckCircle2 className="h-3.5 w-3.5 text-white shrink-0" />
-              <span>Daily Plumbing Crews Active Across Midnapore</span>
+              <span>{t('ctaBadge')}</span>
             </div>
 
             <h2 className="font-display text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-tight text-balance">
-              Facing An Urgent Leak Or Planning A Pipeline Project?
+              {t('ctaHeading')}
             </h2>
 
             <p className="text-white/95 text-sm sm:text-base lg:text-lg leading-relaxed max-w-2xl mx-auto text-pretty font-normal tracking-[0.002em]">
-              Do not let hidden dampness, high-pressure bursts, or drainage backups compromise
-              your home. Secure your appointment with master technicians today.
+              {t('ctaDesc')}
             </p>
 
             {/* High-Intent Dual CTAs */}
@@ -54,7 +56,7 @@ export function CtaSection() {
                 >
                   <Link href="/book">
                     <Calendar className="mr-2 h-4 w-4 text-[#003E9E] shrink-0" />
-                    Schedule Service Online
+                    {t('scheduleOnlineBtn')}
                     <ArrowRight className="ml-2 h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-1" />
                   </Link>
                 </Button>
@@ -74,7 +76,7 @@ export function CtaSection() {
                 >
                   <a href={`tel:${businessInfo.phone}`}>
                     <Phone className="mr-2 h-4 w-4 shrink-0" />
-                    Hotline: {businessInfo.phoneDisplay}
+                    {t('hotlineLabel')}: {businessInfo.phoneDisplay}
                   </a>
                 </Button>
               </motion.div>
@@ -84,11 +86,11 @@ export function CtaSection() {
             <div className="pt-6 border-t border-white/20 flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-8 gap-y-2.5 text-xs text-white">
               <span className="flex items-center gap-1.5 font-medium">
                 <CheckCircle2 className="h-4 w-4 text-white shrink-0" />
-                Zero Advance Booking Fee
+                {t('zeroAdvanceFee')}
               </span>
               <span className="flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="h-4 w-4 text-white shrink-0" />
-                Payment Only After Satisfaction
+                {t('payAfterSatisfaction')}
               </span>
               <span className="flex items-center gap-1.5 font-medium">
                 <Clock className="h-4 w-4 text-white shrink-0" />

@@ -227,16 +227,16 @@ export function HomeAreasPreview() {
         >
           <div className="h-1.5 w-full bg-gradient-to-r from-[#071936] via-[#003E9E] to-[#1C64EC]" />
 
-          <div className="p-6 sm:p-8 space-y-6">
+          <div className="p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
             {/* Command Header Row */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 pb-6 border-b border-[#DCE5F2] dark:border-border">
-              <div className="flex items-start gap-4">
-                <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl bg-[#003E9E]/10 border border-[#003E9E]/20 text-[#003E9E] dark:text-[#60A5FA]">
-                  <Building2 className="h-6 w-6" />
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5 pb-5 sm:pb-6 border-b border-[#DCE5F2] dark:border-border">
+              <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
+                <div className="flex h-11 w-11 sm:h-13 sm:w-13 shrink-0 items-center justify-center rounded-2xl bg-[#003E9E]/10 border border-[#003E9E]/20 text-[#003E9E] dark:text-[#60A5FA]">
+                  <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-mono">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] sm:text-xs font-mono">
                     <span className="font-bold text-[#003E9E] dark:text-[#60A5FA] uppercase tracking-wider">
                       Official Registered Service Address &amp; HQ
                     </span>
@@ -248,34 +248,34 @@ export function HomeAreasPreview() {
                     </span>
                   </div>
 
-                  <h3 className="font-display text-lg sm:text-xl font-bold text-[#071936] dark:text-foreground leading-snug">
+                  <h3 className="font-display text-base sm:text-xl font-bold text-[#071936] dark:text-foreground leading-snug break-words">
                     {businessInfo.name} — Central Workshop &amp; Hardware Counter
                   </h3>
 
-                  <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground font-mono">
+                  <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground font-mono leading-relaxed break-words">
                     {businessInfo.address}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              {/* Action Buttons — Balanced 2-Col on Mobile, Inline on Desktop */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-2.5 w-full lg:w-auto shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleCopyAddress}
-                  className="h-10 px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/30 hover:border-[#003E9E] text-[#071936] dark:text-foreground text-xs font-semibold gap-1.5 whitespace-nowrap"
+                  className="h-10 px-3 sm:px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/30 hover:border-[#003E9E] text-[#071936] dark:text-foreground text-xs font-semibold gap-1.5 justify-center whitespace-nowrap"
                 >
                   {copiedAddress ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>Address Copied</span>
+                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">Address Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                      <span>Copy Full Address</span>
+                      <Copy className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
+                      <span className="truncate">Copy Full Address</span>
                     </>
                   )}
                 </Button>
@@ -284,72 +284,72 @@ export function HomeAreasPreview() {
                   asChild
                   variant="outline"
                   size="sm"
-                  className="h-10 px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-[#003E9E] text-[#003E9E] dark:text-[#60A5FA] text-xs font-semibold gap-1.5 whitespace-nowrap"
+                  className="h-10 px-3 sm:px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-[#003E9E] text-[#003E9E] dark:text-[#60A5FA] text-xs font-semibold gap-1.5 justify-center whitespace-nowrap"
                 >
                   <a
                     href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    <span>Open Google Maps</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Open Google Maps</span>
                   </a>
                 </Button>
               </div>
             </div>
 
             {/* 6-Tile Structured Address Breakdown Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
                   Village / Locality
                 </span>
-                <span className="font-display font-bold text-sm text-[#071936] dark:text-foreground mt-1 block">
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
                   Bahardaltitia
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
                   Post Office (PO)
                 </span>
-                <span className="font-display font-bold text-sm text-[#071936] dark:text-foreground mt-1 block">
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
                   Keshrambha
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
                   Police Station (PS)
                 </span>
-                <span className="font-display font-bold text-sm text-[#071936] dark:text-foreground mt-1 block">
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
                   Dantan
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
                   District &amp; State
                 </span>
-                <span className="font-display font-bold text-sm text-[#071936] dark:text-foreground mt-1 block">
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
                   West Medinipur, WB
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#003E9E]/5 dark:bg-[#003E9E]/20 border border-[#003E9E]/25 p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#003E9E] dark:text-[#60A5FA] block">
+              <div className="rounded-xl bg-[#003E9E]/5 dark:bg-[#003E9E]/20 border border-[#003E9E]/25 p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#003E9E] dark:text-[#60A5FA] block truncate">
                   Postal PIN Code
                 </span>
-                <span className="font-mono font-extrabold text-base text-[#003E9E] dark:text-[#60A5FA] mt-0.5 block tabular-nums">
+                <span className="font-mono font-extrabold text-sm sm:text-base text-[#003E9E] dark:text-[#60A5FA] mt-0.5 block tabular-nums">
                   {businessInfo.pincode}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
                   Mon–Sat Hours
                 </span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block tabular-nums">
+                <span className="font-mono font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block tabular-nums truncate">
                   {businessInfo.hours}
                 </span>
               </div>

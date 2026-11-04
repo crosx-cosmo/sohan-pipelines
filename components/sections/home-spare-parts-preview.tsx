@@ -15,7 +15,9 @@ import {
   XCircle,
   Plus,
   Minus,
+  FileDown,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SparePartImage } from '@/components/spare-part-image';
@@ -27,6 +29,8 @@ import {
 } from '@/lib/supabase-data';
 import { getSparePartImageUrl } from '@/lib/spare-parts-mapping';
 import { useCart } from '@/lib/cart-context';
+import { useLanguage } from '@/lib/language-context';
+import { downloadOfficialPdf, generateQuotationRef } from '@/lib/pdf-quotation';
 import { businessInfo } from '@/lib/business-info';
 import { cn } from '@/lib/utils';
 import { luxuryEasing } from '@/lib/motion';
@@ -40,6 +44,7 @@ function getSupplierName(part: DbSparePart): string | null {
 }
 
 export function HomeSparePartsPreview() {
+  const { t, isBn } = useLanguage();
   const [parts, setParts] = React.useState<DbSparePart[]>(
     () => getCachedSpareParts() ?? []
   );
@@ -138,6 +143,40 @@ export function HomeSparePartsPreview() {
     setQuantities((prev) => ({ ...prev, [part.id]: 1 }));
   };
 
+  const handleDownloadPartPdf = (part: DbSparePart, qty: number) => {
+    const refId = generateQuotationRef('QT');
+    const { filename } = downloadOfficialPdf({
+      referenceId: refId,
+      documentType: 'SPARE_PARTS_QUOTE',
+      customerName: 'Valued WhatsApp Customer',
+      customerArea: 'Keshrambha / Dantan Counter',
+      items: [
+        {
+          name: part.name,
+          skuOrCode: part.sku || undefined,
+          categoryOrMeta: part.category || 'Plumbing Hardware',
+          quantity: qty,
+          unitPrice:
+            part.selling_price !== null &&
+            part.selling_price !== undefined &&
+            Number(part.selling_price) > 0
+              ? Number(part.selling_price)
+              : null,
+        },
+      ],
+    });
+    toast.success(
+      isBn
+        ? `অফিসিয়াল PDF কোটাশন ডাউনলোড হয়েছে (${refId})`
+        : `Spare Part PDF Quote Downloaded (${refId})`,
+      {
+        description: isBn
+          ? `ফাইল: ${filename} — হোয়াটসঅ্যাপে (+91 93828 82517) পাঠিয়ে অর্ডার নিশ্চিত করুন।`
+          : `Saved ${filename}. Share on WhatsApp (+91 93828 82517) to confirm stock.`,
+      }
+    );
+  };
+
   return (
     <section className="relative py-16 lg:py-24 bg-white dark:bg-background border-b border-[#DCE5F2] dark:border-border/80 overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -152,18 +191,16 @@ export function HomeSparePartsPreview() {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.14em] text-[#003E9E] dark:text-[#60A5FA] font-bold mb-3">
               <span className="h-2 w-2 rounded-full bg-[#1C64EC]" />
-              <span>02 · Authorized Hardware Counter &amp; Live Inventory</span>
+              <span>{t('partsEyebrow')}</span>
             </div>
             <h2 className="font-display text-2xl sm:text-4xl lg:text-[2.45rem] font-bold tracking-tight text-[#071936] dark:text-foreground leading-[1.14] text-balance">
-              Genuine Plumbing Spare Parts &amp;{' '}
+              {t('partsHeadingPart1')}{' '}
               <span className="text-[#003E9E] dark:text-[#60A5FA]">
-                Pipeline Fittings
+                {t('partsHeadingHighlight')}
               </span>
             </h2>
             <p className="mt-3 text-sm sm:text-base text-[#475569] dark:text-muted-foreground leading-relaxed text-pretty">
-              Direct counter supply of pressure-rated water tanks, CPVC/UPVC
-              fittings, heavy brass valves, and sanitaryware hardware—connected
-              live to our Keshrambha &amp; Dantan warehouse stock.
+              {t('partsSubheading')}
             </p>
           </div>
 
@@ -186,7 +223,7 @@ export function HomeSparePartsPreview() {
               className="font-semibold text-xs h-11 px-5 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white shadow-sm flex-1 sm:flex-initial justify-center whitespace-nowrap"
             >
               <Link href="/spare-parts">
-                View All Spare Parts
+                {t('viewAllSpareParts')}
                 {parts.length > 0 ? ` (${parts.length})` : ''}
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5 shrink-0" />
               </Link>
@@ -397,7 +434,7 @@ export function HomeSparePartsPreview() {
                         <div className="flex items-baseline justify-between gap-2">
                           <div>
                             <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
-                              Counter Selling Price
+                              {t('counterSellingPrice')}
                             </span>
                             {hasSellingPrice ? (
                               <div className="flex items-baseline gap-1.5">
@@ -415,87 +452,104 @@ export function HomeSparePartsPreview() {
                               </div>
                             ) : (
                               <span className="text-sm font-bold text-[#003E9E] dark:text-[#60A5FA]">
-                                Price on Enquiry
+                                {t('priceOnEnquiry')}
                               </span>
                             )}
                           </div>
 
                           <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-emerald-700 dark:text-emerald-400">
                             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                            <span>Ready for Dispatch</span>
+                            <span>{t('readyForDispatch')}</span>
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          {/* Quantity Stepper */}
-                          {!isOutOfStock && (
-                            <div className="flex items-center rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-background p-0.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateQty(part.id, -1, part.stock)
-                                }
-                                disabled={selectedQty <= 1}
-                                aria-label="Decrease quantity"
-                                className="h-9 w-8 rounded-lg flex items-center justify-center text-[#475569] hover:text-[#071936] dark:hover:text-foreground hover:bg-[#DCE5F2]/60 disabled:opacity-35 cursor-pointer transition-colors"
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="w-7 text-center font-mono text-xs font-bold text-[#071936] dark:text-foreground tabular-nums">
-                                {selectedQty}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateQty(part.id, 1, part.stock)
-                                }
-                                aria-label="Increase quantity"
-                                className="h-9 w-8 rounded-lg flex items-center justify-center text-[#475569] hover:text-[#071936] dark:hover:text-foreground hover:bg-[#DCE5F2]/60 cursor-pointer transition-colors"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            {/* Quantity Stepper */}
+                            {!isOutOfStock && (
+                              <div className="flex items-center rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-background p-0.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQty(part.id, -1, part.stock)
+                                  }
+                                  disabled={selectedQty <= 1}
+                                  aria-label="Decrease quantity"
+                                  className="h-9 w-8.5 rounded-lg flex items-center justify-center text-[#475569] hover:text-[#071936] dark:hover:text-foreground hover:bg-[#DCE5F2]/60 disabled:opacity-35 cursor-pointer transition-colors"
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </button>
+                                <span className="w-7 text-center font-mono text-xs font-bold text-[#071936] dark:text-foreground tabular-nums">
+                                  {selectedQty}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQty(part.id, 1, part.stock)
+                                  }
+                                  aria-label="Increase quantity"
+                                  className="h-9 w-8.5 rounded-lg flex items-center justify-center text-[#475569] hover:text-[#071936] dark:hover:text-foreground hover:bg-[#DCE5F2]/60 cursor-pointer transition-colors"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
 
-                          <Button
-                            type="button"
-                            onClick={() => handleQuickAdd(part)}
-                            disabled={isOutOfStock}
-                            size="sm"
-                            className="flex-1 text-xs font-semibold h-10 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white gap-1.5 justify-center whitespace-nowrap shadow-xs"
-                          >
-                            <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
-                            {isOutOfStock ? 'Unavailable' : 'Add to Cart'}
-                          </Button>
-
-                          <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-10 px-3.5 rounded-xl border-[#DCE5F2] dark:border-border bg-white dark:bg-background text-[#071936] dark:text-foreground hover:border-[#003E9E] hover:text-[#003E9E] shrink-0 whitespace-nowrap"
-                          >
-                            <a
-                              href={`https://wa.me/${rawPhone}?text=${encodeURIComponent(
-                                `Hello Sohan Pipeline's, I would like to enquire about ${part.name}${
-                                  part.sku ? ` [SKU: ${part.sku}]` : ''
-                                }${
-                                  hasSellingPrice
-                                    ? ` (Listed at ₹${Number(
-                                        part.selling_price
-                                      ).toLocaleString('en-IN')})`
-                                    : ''
-                                } — Quantity: ${selectedQty}.`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              aria-label={`Enquire about ${part.name} on WhatsApp`}
+                            <Button
+                              type="button"
+                              onClick={() => handleQuickAdd(part)}
+                              disabled={isOutOfStock}
+                              size="sm"
+                              className="flex-1 text-xs font-semibold h-10 rounded-xl bg-[#003E9E] hover:bg-[#071936] text-white gap-1.5 justify-center whitespace-nowrap shadow-xs"
                             >
-                              <MessageCircle className="h-4 w-4 sm:mr-1.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                              <span className="hidden sm:inline text-xs font-semibold">
-                                WhatsApp
+                              <ShoppingBag className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">
+                                {isOutOfStock ? t('unavailable') : t('addToCart')}
                               </span>
-                            </a>
-                          </Button>
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadPartPdf(part, selectedQty)}
+                              title={t('downloadPdfQuote')}
+                              aria-label={`Download PDF Quotation for ${part.name}`}
+                              className="h-9.5 px-3 rounded-xl border-[#003E9E]/30 bg-[#003E9E]/[0.05] text-[#003E9E] dark:text-[#60A5FA] hover:bg-[#003E9E] hover:text-white justify-center whitespace-nowrap text-xs font-semibold"
+                            >
+                              <FileDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{t('pdfQuoteShort')}</span>
+                            </Button>
+
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="h-9.5 px-3 rounded-xl border-emerald-500/35 bg-emerald-500/[0.05] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/15 justify-center whitespace-nowrap text-xs font-semibold"
+                            >
+                              <a
+                                href={`https://wa.me/${rawPhone}?text=${encodeURIComponent(
+                                  `Hello Sohan Pipeline's, I would like to enquire about ${part.name}${
+                                    part.sku ? ` [SKU: ${part.sku}]` : ''
+                                  }${
+                                    hasSellingPrice
+                                      ? ` (Listed at ₹${Number(
+                                          part.selling_price
+                                        ).toLocaleString('en-IN')})`
+                                      : ''
+                                  } — Quantity: ${selectedQty}.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Enquire about ${part.name} on WhatsApp`}
+                              >
+                                <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span className="truncate">WhatsApp</span>
+                              </a>
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

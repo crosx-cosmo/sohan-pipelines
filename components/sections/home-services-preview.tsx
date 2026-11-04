@@ -14,7 +14,9 @@ import {
   ChevronDown,
   MessageCircle,
   Calendar,
+  FileDown,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   fetchLiveServices,
@@ -25,9 +27,12 @@ import {
 } from '@/lib/supabase-data';
 import { ServiceCardMedia } from '@/components/service-card-media';
 import { businessInfo } from '@/lib/business-info';
+import { useLanguage } from '@/lib/language-context';
+import { downloadOfficialPdf, generateQuotationRef } from '@/lib/pdf-quotation';
 import { luxuryEasing } from '@/lib/motion';
 
 export function HomeServicesPreview() {
+  const { t, isBn } = useLanguage();
   const [servicesList, setServicesList] = React.useState<DbService[]>(
     () => getCachedServices() ?? []
   );
@@ -95,6 +100,35 @@ export function HomeServicesPreview() {
   const rawPhone =
     businessInfo.phone.replace(/\D/g, '') || '919382882517';
 
+  const handleDownloadServicePdf = (service: DbService, category: string) => {
+    const refId = generateQuotationRef('EST');
+    const { filename } = downloadOfficialPdf({
+      referenceId: refId,
+      documentType: 'SERVICE_ESTIMATE',
+      customerName: 'Valued WhatsApp Customer',
+      customerArea: 'Paschim / Purba Medinipur',
+      items: [
+        {
+          name: service.name,
+          skuOrCode: service.slug?.toUpperCase() || 'SRV-EST',
+          categoryOrMeta: `${category} (${service.duration || 'Same-Day Slot'})`,
+          quantity: 1,
+          unitPrice: service.price ? Number(service.price) : null,
+        },
+      ],
+    });
+    toast.success(
+      isBn
+        ? `অফিসিয়াল PDF কোটাশন ডাউনলোড হয়েছে (${refId})`
+        : `Official Service Estimate PDF Downloaded (${refId})`,
+      {
+        description: isBn
+          ? `ফাইল: ${filename} — হোয়াটসঅ্যাপে (+91 93828 82517) পাঠিয়ে বুকিং নিশ্চিত করুন।`
+          : `Saved ${filename}. Share on WhatsApp (+91 93828 82517) to schedule immediately.`,
+      }
+    );
+  };
+
   return (
     <section
       aria-labelledby="home-services-heading"
@@ -112,23 +146,21 @@ export function HomeServicesPreview() {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.14em] text-[#003E9E] dark:text-[#60A5FA] font-bold mb-3">
               <span className="h-2 w-2 rounded-full bg-[#1C64EC]" />
-              <span>01 · Curated Engineering Capabilities</span>
+              <span>{t('servicesEyebrow')}</span>
             </div>
 
             <h2
               id="home-services-heading"
               className="font-display text-2xl sm:text-4xl lg:text-[2.45rem] font-bold tracking-tight text-[#071936] dark:text-foreground leading-[1.14] text-balance"
             >
-              Signature Plumbing Services for{' '}
+              {t('servicesHeadingPart1')}{' '}
               <span className="text-[#003E9E] dark:text-[#60A5FA]">
-                Homes &amp; Commercial Facilities
+                {t('servicesHeadingHighlight')}
               </span>
             </h2>
 
             <p className="mt-3 text-sm sm:text-base text-[#475569] dark:text-muted-foreground leading-relaxed text-pretty">
-              Selected from our active service catalogue—combining precision
-              pipe fitting, non-destructive leak diagnostics, and upfront
-              written estimates before work begins.
+              {t('servicesSubheading')}
             </p>
           </div>
 
@@ -140,7 +172,7 @@ export function HomeServicesPreview() {
               className="font-semibold text-xs h-11 px-5 rounded-xl bg-white dark:bg-card border-[#DCE5F2] dark:border-border hover:border-[#003E9E] flex-1 sm:flex-initial justify-center whitespace-nowrap shadow-2xs"
             >
               <Link href="/services">
-                View All Services
+                {t('viewAllServices')}
                 {servicesList.length > 0 ? ` (${servicesList.length})` : ''}
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5 shrink-0" />
               </Link>
@@ -153,7 +185,7 @@ export function HomeServicesPreview() {
             >
               <Link href="/book">
                 <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                Book a Service
+                {t('bookAService')}
               </Link>
             </Button>
           </div>
@@ -298,9 +330,9 @@ export function HomeServicesPreview() {
                       {/* Included Scope 2x2 Grid */}
                       <div className="pt-4 border-t border-[#DCE5F2]/80 dark:border-border/70 space-y-2.5">
                         <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          <span>Included Workmanship Scope</span>
+                          <span>{t('includedScope')}</span>
                           <span className="font-mono text-[#003E9E] dark:text-primary normal-case">
-                            4 Standards Included
+                            {t('standardsIncluded')}
                           </span>
                         </div>
 
@@ -329,9 +361,7 @@ export function HomeServicesPreview() {
                         >
                           <span className="inline-flex items-center gap-2">
                             <ShieldCheck className="h-3.5 w-3.5 text-[#003E9E] dark:text-primary shrink-0" />
-                            <span>
-                              Material Grade, Testing &amp; Warranty Specs
-                            </span>
+                            <span>{t('materialSpecsLabel')}</span>
                           </span>
                           <ChevronDown
                             className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
@@ -383,18 +413,29 @@ export function HomeServicesPreview() {
                   </div>
 
                   {/* Card Footer Action Bar */}
-                  <div className="px-5 sm:px-6 py-4 bg-[#F6F9FC]/90 dark:bg-muted/25 border-t border-[#DCE5F2] dark:border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="px-5 sm:px-6 py-4 bg-[#F6F9FC]/90 dark:bg-muted/25 border-t border-[#DCE5F2] dark:border-border/70 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span>Pay only after job inspection</span>
+                      <span>{t('payAfterInspection')}</span>
                     </div>
 
-                    <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                    <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full xl:w-auto">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadServicePdf(service, category)}
+                        className="h-10 px-3 rounded-xl font-semibold text-xs border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-primary/50 hover:text-primary justify-center whitespace-nowrap"
+                      >
+                        <FileDown className="mr-1.5 h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="truncate">{t('downloadServiceQuote')}</span>
+                      </Button>
+
                       <Button
                         asChild
                         variant="outline"
                         size="sm"
-                        className="h-10 px-3.5 rounded-xl font-semibold text-xs border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 flex-1 sm:flex-initial justify-center whitespace-nowrap"
+                        className="h-10 px-3.5 rounded-xl font-semibold text-xs border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-emerald-500/50 hover:text-emerald-700 dark:hover:text-emerald-300 justify-center whitespace-nowrap"
                       >
                         <a
                           href={`https://wa.me/${rawPhone}?text=${whatsappServiceText}`}
@@ -402,21 +443,21 @@ export function HomeServicesPreview() {
                           rel="noopener noreferrer"
                         >
                           <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          WhatsApp
+                          <span>WhatsApp</span>
                         </a>
                       </Button>
 
                       <Button
                         asChild
                         size="sm"
-                        className="h-10 px-4 rounded-xl font-semibold text-xs bg-[#003E9E] hover:bg-[#071936] text-white shadow-xs flex-1 sm:flex-initial justify-center whitespace-nowrap group/btn"
+                        className="col-span-2 sm:col-span-1 h-10 px-4 rounded-xl font-semibold text-xs bg-[#003E9E] hover:bg-[#071936] text-white shadow-xs sm:flex-1 xl:flex-initial justify-center whitespace-nowrap group/btn"
                       >
                         <Link
                           href={`/book?service=${encodeURIComponent(
                             service.id
                           )}`}
                         >
-                          Book This Service
+                          <span>{t('bookThisService')}</span>
                           <ArrowRight className="ml-1.5 h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover/btn:translate-x-0.5" />
                         </Link>
                       </Button>
@@ -482,7 +523,7 @@ export function HomeServicesPreview() {
               className="h-10 px-4 rounded-xl font-semibold text-xs border-[#DCE5F2] dark:border-border hover:border-[#003E9E]/45 whitespace-nowrap"
             >
               <Link href="/services">
-                Explore All {servicesList.length || ''} Services
+                {t('viewAllServices')} {servicesList.length ? `(${servicesList.length})` : ''}
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5 shrink-0" />
               </Link>
             </Button>

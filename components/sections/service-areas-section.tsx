@@ -25,7 +25,6 @@ import { DispatchHubMap } from '@/components/dispatch-hub-map';
 import { ServiceAreaCardMedia } from '@/components/service-area-card-media';
 import {
   fetchLiveServiceAreas,
-  getCachedServiceAreas,
   type DbServiceArea,
 } from '@/lib/supabase-data';
 import { luxuryEasing } from '@/lib/motion';
@@ -43,10 +42,8 @@ function formatDistrictHeading(district: string): string {
 }
 
 export function ServiceAreasSection() {
-  const [areas, setAreas] = React.useState<DbServiceArea[]>(
-    () => getCachedServiceAreas() ?? []
-  );
-  const [loading, setLoading] = React.useState(() => !getCachedServiceAreas());
+  const [areas, setAreas] = React.useState<DbServiceArea[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [copiedAddress, setCopiedAddress] = React.useState(false);
@@ -178,23 +175,23 @@ export function ServiceAreasSection() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full lg:w-auto shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleCopyAddress}
-                  className="h-10 px-3.5 rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap border-[#DCE5F2] dark:border-border"
+                  className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold gap-1.5 justify-center whitespace-nowrap border-[#DCE5F2] dark:border-border"
                 >
                   {copiedAddress ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Address Copied</span>
+                      <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="truncate">Address Copied</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                      <span>Copy Full Address</span>
+                      <Copy className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
+                      <span className="truncate">Copy Full Address</span>
                     </>
                   )}
                 </Button>
@@ -203,25 +200,25 @@ export function ServiceAreasSection() {
                   asChild
                   variant="outline"
                   size="sm"
-                  className="h-10 px-3.5 rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap border-[#DCE5F2] dark:border-border"
+                  className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold gap-1.5 justify-center whitespace-nowrap border-[#DCE5F2] dark:border-border"
                 >
                   <a
                     href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
-                    <span>Open Google Maps</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
+                    <span className="truncate">Open Google Maps</span>
                   </a>
                 </Button>
 
                 <Button
                   asChild
                   size="sm"
-                  className="h-10 px-4 rounded-xl text-xs font-semibold gap-1.5 whitespace-nowrap bg-[#003E9E] hover:bg-[#071936] text-white"
+                  className="col-span-2 sm:col-span-1 h-10 px-4 rounded-xl text-xs font-semibold gap-1.5 justify-center whitespace-nowrap bg-[#003E9E] hover:bg-[#071936] text-white"
                 >
                   <a href={`tel:${businessInfo.phone}`}>
-                    <Phone className="h-3.5 w-3.5" />
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
                     <span>{businessInfo.phoneDisplay}</span>
                   </a>
                 </Button>
