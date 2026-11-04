@@ -17,16 +17,30 @@ import {
   Check,
   ExternalLink,
   X,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { businessInfo } from '@/lib/business-info';
+import { supabase } from '@/lib/supabase';
 import { DispatchHubMap } from '@/components/dispatch-hub-map';
 import { ServiceAreaCardMedia } from '@/components/service-area-card-media';
 import {
+  WorkshopCard,
+  WorkshopAdminModal,
+  WorkshopRlsSyncCard,
+} from '@/components/workshop-card';
+import {
   fetchLiveServiceAreas,
+  fetchLiveWorkshops,
+  getCachedWorkshops,
   type DbServiceArea,
+  type DbWorkshopAddress,
 } from '@/lib/supabase-data';
+import {
+  formatWorkshopFullAddress,
+  formatWorkshopShortAddress,
+} from '@/lib/workshop-mapping';
 import { luxuryEasing } from '@/lib/motion';
 import { toast } from 'sonner';
 
@@ -43,45 +57,80 @@ function formatDistrictHeading(district: string): string {
 
 export function ServiceAreasSection() {
   const [areas, setAreas] = React.useState<DbServiceArea[]>([]);
+  const [workshops, setWorkshops] = React.useState<DbWorkshopAddress[]>(
+    () => getCachedWorkshops() ?? []
+  );
+  const [workshopRlsBlocked, setWorkshopRlsBlocked] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [copiedAddress, setCopiedAddress] = React.useState(false);
 
-  const loadAreas = React.useCallback(async (showLoading = true) => {
+  // Admin session for managing Workshop records
+  const [activeUserEmail, setActiveUserEmail] = React.useState<string | null>(
+    null
+  );
+  const [showWorkshopModal, setShowWorkshopModal] = React.useState(false);
+  const [editingWorkshop, setEditingWorkshop] =
+    React.useState<DbWorkshopAddress | null>(null);
+
+  const loadData = React.useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     setError(null);
-    const { data, error: err } = await fetchLiveServiceAreas({
-      forceRefresh: true,
-    });
-    if (err) {
-      setError(err);
+    const [areasRes, workshopsRes] = await Promise.all([
+      fetchLiveServiceAreas({ forceRefresh: true }),
+      fetchLiveWorkshops({ forceRefresh: true }),
+    ]);
+    setWorkshopRlsBlocked(Boolean(workshopsRes.rlsBlocked));
+    if (areasRes.error && workshopsRes.error) {
+      setError(areasRes.error);
       setAreas([]);
     } else {
-      setAreas(data);
+      setAreas(areasRes.data || []);
+      setWorkshops(workshopsRes.data || []);
     }
     setLoading(false);
   }, []);
 
   React.useEffect(() => {
     let active = true;
-    fetchLiveServiceAreas().then(({ data, error: err }) => {
+
+    supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      if (err) {
-        setError(err);
-        setAreas([]);
-      } else {
-        setAreas(data);
-      }
-      setLoading(false);
+      setActiveUserEmail(data.session?.user?.email ?? null);
     });
 
+    Promise.all([fetchLiveServiceAreas(), fetchLiveWorkshops()]).then(
+      ([areasRes, workshopsRes]) => {
+        if (!active) return;
+        setWorkshopRlsBlocked(Boolean(workshopsRes.rlsBlocked));
+        if (areasRes.error && workshopsRes.error) {
+          setError(areasRes.error);
+          setAreas([]);
+        } else {
+          setAreas(areasRes.data || []);
+          setWorkshops(workshopsRes.data || []);
+        }
+        setLoading(false);
+      }
+    );
+
+    const workshopChannel = supabase
+      .channel('public-workshop-addresses-areas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_addresses' },
+        () => {
+          if (active) {
+            loadData(false);
+          }
+        }
+      )
+      .subscribe();
+
     const handleVisibilityRefresh = () => {
-      if (document.visibilityState === 'visible') {
-        fetchLiveServiceAreas({ forceRefresh: true }).then(({ data, error: err }) => {
-          if (!active || err) return;
-          setAreas(data);
-        });
+      if (document.visibilityState === 'visible' && active) {
+        loadData(false);
       }
     };
 
@@ -92,21 +141,47 @@ export function ServiceAreasSection() {
       active = false;
       window.removeEventListener('focus', handleVisibilityRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      supabase.removeChannel(workshopChannel);
     };
-  }, []);
+  }, [loadData]);
+
+  const primaryWorkshop = workshops[0] ?? null;
+
+  const displayWorkshopName =
+    primaryWorkshop?.name ||
+    `${businessInfo.name} — Central Engineering Depot & Parts Counter`;
+  const displayFullAddress = primaryWorkshop
+    ? formatWorkshopFullAddress(primaryWorkshop)
+    : businessInfo.address;
+  const displayShortAddress = primaryWorkshop
+    ? formatWorkshopShortAddress(primaryWorkshop)
+    : businessInfo.addressShort;
+  const displayPincode = primaryWorkshop?.postal_code || businessInfo.pincode;
+  const displayCity = primaryWorkshop?.city || 'Bahardaltitia';
+  const displayAddressLine1 =
+    primaryWorkshop?.address_line_1 || 'Vill : - Bahardaltitia, PO : - Keshrambha';
+  const displayAddressLine2 = primaryWorkshop
+    ? primaryWorkshop.address_line_2 || '—'
+    : 'PS : - Dantan';
+  const displayLandmark = primaryWorkshop
+    ? primaryWorkshop.landmark || '—'
+    : 'Keshrambha';
+  const displayDistrictState = primaryWorkshop
+    ? `${primaryWorkshop.district}, ${primaryWorkshop.state}`
+    : `${businessInfo.district}, ${businessInfo.state}`;
 
   const handleCopyAddress = async () => {
     try {
       await navigator.clipboard.writeText(
-        `${businessInfo.name} — ${businessInfo.address} (Phone: ${businessInfo.phoneDisplay})`
+        `${displayWorkshopName} — ${displayFullAddress} (Phone: ${businessInfo.phoneDisplay})`
       );
       setCopiedAddress(true);
       toast.success('Official Workshop Address Copied', {
-        description: businessInfo.address,
+        description: displayFullAddress,
       });
       setTimeout(() => setCopiedAddress(false), 2500);
     } catch {
-      toast.info(businessInfo.address);
+      toast.info(displayFullAddress);
     }
   };
 
@@ -162,20 +237,35 @@ export function ServiceAreasSection() {
                       ·
                     </span>
                     <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold tabular-nums">
-                      PIN {businessInfo.pincode}
+                      PIN {displayPincode}
                     </span>
                   </div>
                   <h2 className="font-display text-lg sm:text-xl font-bold text-[#071936] dark:text-foreground">
-                    {businessInfo.name} — Central Engineering Depot &amp; Parts
-                    Counter
+                    {displayWorkshopName}
                   </h2>
                   <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground">
-                    {businessInfo.address}
+                    {displayFullAddress}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full lg:w-auto shrink-0">
+                {activeUserEmail && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingWorkshop(null);
+                      setShowWorkshopModal(true);
+                    }}
+                    className="col-span-2 sm:col-span-1 h-10 px-3.5 rounded-xl text-xs font-semibold gap-1.5 justify-center whitespace-nowrap border-[#003E9E]/30 text-[#003E9E] dark:text-[#60A5FA]"
+                  >
+                    <Settings2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>Manage Workshops ({workshops.length})</span>
+                  </Button>
+                )}
+
                 <Button
                   type="button"
                   variant="outline"
@@ -203,7 +293,7 @@ export function ServiceAreasSection() {
                   className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold gap-1.5 justify-center whitespace-nowrap border-[#DCE5F2] dark:border-border"
                 >
                   <a
-                    href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
+                    href={businessInfo.googleMapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -228,28 +318,37 @@ export function ServiceAreasSection() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
-                  Village / Locality
+                  Address Line 1
                 </span>
-                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block">
-                  Bahardaltitia
-                </span>
-              </div>
-
-              <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
-                  Post Office (PO)
-                </span>
-                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block">
-                  Keshrambha
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block truncate">
+                  {displayAddressLine1}
                 </span>
               </div>
 
               <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
-                  Police Station (PS)
+                  Address Line 2
                 </span>
-                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block">
-                  Dantan
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block truncate">
+                  {displayAddressLine2}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+                  Landmark
+                </span>
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block truncate">
+                  {displayLandmark}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
+                  City / Locality
+                </span>
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block truncate">
+                  {displayCity}
                 </span>
               </div>
 
@@ -257,8 +356,8 @@ export function ServiceAreasSection() {
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
                   District &amp; State
                 </span>
-                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block">
-                  West Medinipur, WB
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block truncate">
+                  {displayDistrictState}
                 </span>
               </div>
 
@@ -267,21 +366,66 @@ export function ServiceAreasSection() {
                   Postal PIN Code
                 </span>
                 <span className="font-mono font-extrabold text-xs sm:text-sm text-[#003E9E] dark:text-[#60A5FA] mt-0.5 block tabular-nums">
-                  {businessInfo.pincode}
-                </span>
-              </div>
-
-              <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/25 p-3.5">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block">
-                  Mon–Sat Hours
-                </span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-0.5 block tabular-nums">
-                  {businessInfo.hours}
+                  {displayPincode}
                 </span>
               </div>
             </div>
           </div>
         </motion.div>
+
+        {!loading && workshopRlsBlocked && workshops.length === 0 && (
+          <WorkshopRlsSyncCard onSynced={() => loadData(false)} />
+        )}
+
+        {/* Active Workshops Showcase (Connected to `public.workshop_addresses` & `Plumbing Assets/workshop`) */}
+        {!loading && workshops.length > 0 && !searchQuery.trim() && (
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#DCE5F2] dark:border-border gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#003E9E]/10 text-[#003E9E] dark:text-[#60A5FA] border border-[#003E9E]/20">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-[#071936] dark:text-foreground">
+                    Base Workshop &amp; Regional Dispatch HQ
+                  </h2>
+                  <p className="text-xs text-[#475569] dark:text-muted-foreground">
+                    {workshops.length} active workshop{' '}
+                    {workshops.length === 1 ? 'location' : 'locations'}
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs text-[#475569] dark:text-muted-foreground flex items-center gap-1.5 font-medium">
+                <Clock className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA]" />
+                <span>
+                  {businessInfo.hoursDays}: {businessInfo.hours}
+                </span>
+              </span>
+            </div>
+
+            <div
+              className={
+                workshops.length === 1
+                  ? 'grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch'
+                  : 'grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch'
+              }
+            >
+              {workshops.map((workshop, wIdx) => (
+                <WorkshopCard
+                  key={workshop.id || `ws-${wIdx}`}
+                  workshop={workshop}
+                  index={wIdx}
+                  priority={wIdx === 0}
+                  canManage={Boolean(activeUserEmail)}
+                  onEdit={(w) => {
+                    setEditingWorkshop(w);
+                    setShowWorkshopModal(true);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Interactive Dispatch Topology Map */}
         <DispatchHubMap />
@@ -370,7 +514,7 @@ export function ServiceAreasSection() {
                 </a>
               </Button>
               <Button
-                onClick={() => loadAreas(true)}
+                onClick={() => loadData(true)}
                 size="sm"
                 variant="outline"
                 className="rounded-xl"
@@ -406,7 +550,7 @@ export function ServiceAreasSection() {
                 </a>
               </Button>
               <Button
-                onClick={() => loadAreas(true)}
+                onClick={() => loadData(true)}
                 size="sm"
                 variant="outline"
                 className="rounded-xl"
@@ -454,7 +598,7 @@ export function ServiceAreasSection() {
             </div>
           )}
 
-        {/* Live District Breakdowns with Strict 1-to-1 Storage Bucket Visuals + Base Workshop Card */}
+        {/* Live District Breakdowns with Strict 1-to-1 Storage Bucket Visuals */}
         {!loading && !error && areas.length > 0 && (
           <div className="space-y-12">
             {Object.entries(districtGroups).map(
@@ -484,7 +628,7 @@ export function ServiceAreasSection() {
                     </div>
                   </div>
 
-                  {/* Area Cards Grid with Live Records + Dedicated Base Workshop HQ Placeholder Card */}
+                  {/* Area Cards Grid with Live Records */}
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
                     {districtAreas.map((area, idx) => (
                       <motion.article
@@ -503,7 +647,6 @@ export function ServiceAreasSection() {
                         className="group rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card overflow-hidden transition-all duration-300 shadow-crisp-sm hover:shadow-crisp-lg hover:border-[#003E9E]/60 flex flex-col justify-between"
                       >
                         <div>
-                          {/* 16:10 Image Stage Connected Strictly 1-to-1 to "spare-part-images/catalog-service-areas" */}
                           <ServiceAreaCardMedia
                             title={area.locality}
                             subtitle={
@@ -592,62 +735,6 @@ export function ServiceAreasSection() {
                         </div>
                       </motion.article>
                     ))}
-
-                    {/* Base Workshop & Regional Dispatch HQ Card (Dedicated Placeholder Only — Ready for Future Admin Image Slot) */}
-                    {!searchQuery.trim() && (
-                      <motion.article
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          duration: 0.28,
-                          delay: 0.08,
-                          ease: luxuryEasing,
-                        }}
-                        whileHover={{ y: -4 }}
-                        style={{ willChange: 'transform' }}
-                        className="group rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card overflow-hidden transition-all duration-300 shadow-crisp-sm hover:shadow-crisp-lg hover:border-[#003E9E]/60 flex flex-col justify-between"
-                      >
-                        <div>
-                          <ServiceAreaCardMedia
-                            title="Base Workshop & Dispatch HQ"
-                            subtitle={`${businessInfo.addressShort} · PIN ${businessInfo.pincode}`}
-                            badgeLeft={`HQ · PIN ${businessInfo.pincode}`}
-                            badgeRight="Central Depot"
-                            imageUrl={null}
-                            variant="workshop-hq"
-                          />
-
-                          <div className="p-5 space-y-2.5">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="text-base sm:text-lg font-display font-bold text-[#071936] dark:text-foreground truncate group-hover:text-[#003E9E] transition-colors">
-                                Base Workshop &amp; Hardware Counter
-                              </h3>
-                              <span className="text-xs font-mono text-[#003E9E] dark:text-[#60A5FA] font-semibold shrink-0">
-                                Dantan-I
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#475569] dark:text-muted-foreground leading-relaxed">
-                              Registered headquarters at {businessInfo.address}.
-                              Direct counter pickup for spare parts and regional
-                              dispatch hub.
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="px-5 pb-5 pt-3 border-t border-[#DCE5F2] dark:border-border/60 flex items-center justify-between text-xs">
-                          <span className="text-[11px] font-mono text-[#003E9E] dark:text-[#60A5FA] font-semibold">
-                            {businessInfo.hoursDays}: {businessInfo.hours}
-                          </span>
-                          <Link
-                            href="/book"
-                            className="text-[#003E9E] dark:text-[#60A5FA] font-bold text-xs flex items-center gap-1 group-hover:underline"
-                          >
-                            <span>Schedule Visit</span>
-                            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                          </Link>
-                        </div>
-                      </motion.article>
-                    )}
                   </div>
                 </div>
               )
@@ -668,7 +755,7 @@ export function ServiceAreasSection() {
             <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground leading-relaxed">
               Our workshop at{' '}
               <strong className="text-[#071936] dark:text-foreground font-semibold">
-                {businessInfo.addressShort} (PIN {businessInfo.pincode})
+                {displayShortAddress} (PIN {displayPincode})
               </strong>{' '}
               dispatches mobile technicians equipped with solvent-weld tools,
               motorized drain cleaners, and genuine spare parts across adjacent
@@ -701,6 +788,17 @@ export function ServiceAreasSection() {
           </div>
         </div>
       </div>
+
+      {/* Admin Workshop Manager Modal */}
+      <WorkshopAdminModal
+        open={showWorkshopModal}
+        onClose={() => {
+          setShowWorkshopModal(false);
+          setEditingWorkshop(null);
+        }}
+        onSaved={() => loadData(false)}
+        initialEditingWorkshop={editingWorkshop}
+      />
     </section>
   );
 }

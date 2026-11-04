@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { usePathname } from 'next/navigation';
-import { gentleEasing } from '@/lib/motion';
+import { luxuryEasing } from '@/lib/motion';
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -18,13 +18,13 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <motion.div
       key={pathname}
-      initial={shouldReduceMotion ? false : { opacity: 0.92 }}
-      animate={{ opacity: 1 }}
+      initial={shouldReduceMotion ? false : { opacity: 0.92, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.18,
-        ease: gentleEasing,
+        ease: luxuryEasing,
       }}
-      style={{ willChange: 'opacity' }}
+      style={{ willChange: 'opacity, transform' }}
       className="flex-1 flex flex-col w-full min-w-0 max-w-full overflow-x-hidden gpu-accelerated"
     >
       {children}

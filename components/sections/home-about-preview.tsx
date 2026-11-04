@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { businessInfo } from '@/lib/business-info';
 
 const disciplines = [
@@ -94,7 +95,7 @@ export function HomeAboutPreview() {
               <div className="pt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5 border-t border-border/60 items-stretch">
                 <div className="h-full p-3.5 rounded-2xl bg-card border border-border/60 shadow-2xs flex flex-col justify-between">
                   <p className="font-display text-2xl font-bold text-foreground tabular-nums font-mono">
-                    {yearsExperience}+
+                    <AnimatedCounter value={yearsExperience} suffix="+" />
                   </p>
                   <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
                     Years Active
@@ -103,7 +104,7 @@ export function HomeAboutPreview() {
 
                 <div className="h-full p-3.5 rounded-2xl bg-card border border-border/60 shadow-2xs flex flex-col justify-between">
                   <p className="font-display text-2xl font-bold text-foreground tabular-nums font-mono">
-                    500+
+                    <AnimatedCounter value={500} suffix="+" />
                   </p>
                   <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
                     Projects Done
@@ -112,7 +113,7 @@ export function HomeAboutPreview() {
 
                 <div className="h-full p-3.5 rounded-2xl bg-card border border-border/60 shadow-2xs flex flex-col justify-between">
                   <p className="font-display text-2xl font-bold text-foreground tabular-nums font-mono">
-                    12-Mo
+                    <AnimatedCounter value={12} suffix="-Mo" />
                   </p>
                   <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
                     Joint Warranty
@@ -121,7 +122,7 @@ export function HomeAboutPreview() {
 
                 <div className="h-full p-3.5 rounded-2xl bg-card border border-border/60 shadow-2xs flex flex-col justify-between">
                   <p className="font-display text-2xl font-bold text-foreground tabular-nums font-mono">
-                    20+
+                    <AnimatedCounter value={20} suffix="+" />
                   </p>
                   <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
                     Partner Brands

@@ -4,6 +4,14 @@ import {
   getSparePartImageUrl,
 } from '@/lib/spare-parts-mapping';
 import {
+  WORKSHOP_BUCKET_NAME,
+  WORKSHOP_FOLDER_NAME,
+  getWorkshopImageUrl,
+  normalizeWorkshopStoragePath,
+  type DbWorkshopAddress,
+} from '@/lib/workshop-mapping';
+export type { DbWorkshopAddress } from '@/lib/workshop-mapping';
+import {
   Wrench,
   Droplets,
   Bath,
@@ -994,3 +1002,308 @@ export async function fetchLiveSpareParts(
 
   return inflightSparePartsPromise;
 }
+
+interface WorkshopBucketFileEntry {
+  workshopId: string;
+  storagePath: string;
+  publicUrl: string;
+  versionTag?: string;
+}
+
+interface WorkshopBucketMap {
+  byId: Record<string, WorkshopBucketFileEntry>;
+  byPath: Record<string, WorkshopBucketFileEntry>;
+  files: WorkshopBucketFileEntry[];
+}
+
+let workshopBucketCache: CacheEntry<WorkshopBucketMap> | null = null;
+let inflightWorkshopBucketPromise: Promise<WorkshopBucketMap> | null = null;
+
+/**
+ * Inspects the existing `"Plumbing Assets"` public Supabase Storage bucket (`"workshop"` folder)
+ * where Workshop photos are saved as `"workshop/{unique-workshop-id}.{file-extension}"`.
+ */
+async function fetchWorkshopBucketFilesMap(
+  forceRefresh = false
+): Promise<WorkshopBucketMap> {
+  if (
+    !forceRefresh &&
+    workshopBucketCache &&
+    Date.now() - workshopBucketCache.timestamp < CACHE_TTL_MS
+  ) {
+    return workshopBucketCache.data;
+  }
+
+  if (inflightWorkshopBucketPromise) {
+    return inflightWorkshopBucketPromise;
+  }
+
+  inflightWorkshopBucketPromise = (async () => {
+    const byId: Record<string, WorkshopBucketFileEntry> = {};
+    const byPath: Record<string, WorkshopBucketFileEntry> = {};
+    const files: WorkshopBucketFileEntry[] = [];
+
+    try {
+      const { data: workshopFiles } = await supabase.storage
+        .from(WORKSHOP_BUCKET_NAME)
+        .list(WORKSHOP_FOLDER_NAME, {
+          limit: 100,
+          sortBy: { column: 'updated_at', order: 'desc' },
+        });
+
+      for (const file of workshopFiles ?? []) {
+        if (!file.name || file.name.startsWith('.') || !file.id) continue;
+        const idKey = file.name
+          .replace(/\.[^/.]+$/, '')
+          .trim()
+          .toLowerCase();
+        const storagePath = `${WORKSHOP_FOLDER_NAME}/${file.name}`;
+        const versionTag =
+          file.updated_at || file.version || file.id || undefined;
+        const publicUrl = getWorkshopImageUrl(storagePath, versionTag);
+
+        if (publicUrl && idKey) {
+          const entry: WorkshopBucketFileEntry = {
+            workshopId: idKey,
+            storagePath,
+            publicUrl,
+            versionTag,
+          };
+          if (!byId[idKey]) {
+            byId[idKey] = entry;
+          }
+          byPath[storagePath.toLowerCase()] = entry;
+          files.push(entry);
+        }
+      }
+    } catch {
+      // If storage listing fails, return empty maps
+    } finally {
+      inflightWorkshopBucketPromise = null;
+    }
+
+    const result: WorkshopBucketMap = { byId, byPath, files };
+    workshopBucketCache = {
+      data: result,
+      timestamp: Date.now(),
+    };
+    return result;
+  })();
+
+  return inflightWorkshopBucketPromise;
+}
+
+function enrichWorkshopWithStorageImage(
+  row: DbWorkshopAddress,
+  bucketMap: WorkshopBucketMap
+): DbWorkshopAddress {
+  const idLower = (row.id || '').trim().toLowerCase();
+  const normalizedPath = normalizeWorkshopStoragePath(
+    row.image_path || row.image_url || null
+  );
+
+  let resolvedPath: string | null = normalizedPath;
+  let resolvedUrl: string | null = null;
+
+  if (normalizedPath) {
+    const bucketMatch =
+      bucketMap.byPath[normalizedPath.toLowerCase()] ||
+      (idLower ? bucketMap.byId[idLower] : undefined);
+    const versionTag = bucketMatch?.versionTag || row.updated_at || null;
+    resolvedUrl = getWorkshopImageUrl(normalizedPath, versionTag);
+  } else if (idLower && bucketMap.byId[idLower]) {
+    resolvedPath = bucketMap.byId[idLower].storagePath;
+    resolvedUrl = bucketMap.byId[idLower].publicUrl;
+  } else if (row.image_url && /^https?:\/\//i.test(row.image_url)) {
+    resolvedUrl = getWorkshopImageUrl(row.image_url, row.updated_at || null);
+  }
+
+  return {
+    ...row,
+    image_path: resolvedPath,
+    image_url: resolvedUrl,
+  };
+}
+
+let workshopsCache: CacheEntry<DbWorkshopAddress[]> | null = null;
+let inflightWorkshopsPromise: Promise<{
+  data: DbWorkshopAddress[];
+  error: string | null;
+  rlsBlocked?: boolean;
+  isLiveDb?: boolean;
+}> | null = null;
+
+export function getCachedWorkshops(): DbWorkshopAddress[] | null {
+  return workshopsCache?.data ?? null;
+}
+
+export function clearWorkshopsCache(): void {
+  workshopsCache = null;
+  workshopBucketCache = null;
+}
+
+/**
+ * Fetches Workshop records from `public.workshop_addresses` and resolves
+ * their Workshop photos from the existing `"Plumbing Assets"` bucket (`"workshop"` folder).
+ */
+export async function fetchLiveWorkshops(
+  options: { forceRefresh?: boolean; includeInactive?: boolean } = {}
+): Promise<{
+  data: DbWorkshopAddress[];
+  error: string | null;
+  rlsBlocked?: boolean;
+  isLiveDb?: boolean;
+}> {
+  const { forceRefresh = false, includeInactive = false } = options;
+
+  if (
+    !forceRefresh &&
+    !includeInactive &&
+    workshopsCache &&
+    workshopsCache.data.length > 0 &&
+    Date.now() - workshopsCache.timestamp < CACHE_TTL_MS
+  ) {
+    return {
+      data: workshopsCache.data,
+      error: null,
+      rlsBlocked: false,
+      isLiveDb: true,
+    };
+  }
+
+  if (inflightWorkshopsPromise && !includeInactive) {
+    return inflightWorkshopsPromise;
+  }
+
+  const runFetch = async () => {
+    try {
+      let query = supabase
+        .from('workshop_addresses')
+        .select(
+          'id, name, address_line_1, address_line_2, landmark, city, district, state, postal_code, is_active, image_path, created_at, updated_at'
+        )
+        .order('updated_at', { ascending: false });
+
+      if (!includeInactive) {
+        query = query.neq('is_active', false);
+      }
+
+      const [{ data, error }, bucketMap] = await Promise.all([
+        query,
+        fetchWorkshopBucketFilesMap(forceRefresh),
+      ]);
+
+      if (!error && Array.isArray(data)) {
+        const enriched = (data as DbWorkshopAddress[]).map((row) =>
+          enrichWorkshopWithStorageImage(row, bucketMap)
+        );
+
+        const activeOnly = enriched.filter((w) => w.is_active !== false);
+
+        if (!includeInactive) {
+          workshopsCache = {
+            data: activeOnly,
+            timestamp: Date.now(),
+          };
+        }
+
+        // Sync live DB snapshot to server cache for anonymous visitors
+        if (typeof window !== 'undefined' && enriched.length > 0) {
+          fetch('/api/workshops', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workshops: enriched }),
+          }).catch(() => {});
+        }
+
+        return {
+          data: includeInactive ? enriched : activeOnly,
+          error: null,
+          rlsBlocked: false,
+          isLiveDb: true,
+        };
+      }
+
+      // If `anon` table grant is pending (`permission denied for table workshop_addresses`),
+      // check synced server snapshot from authenticated Admin session
+      const isPermissionDenied = Boolean(
+        error?.code === '42501' ||
+          error?.message?.toLowerCase().includes('permission denied')
+      );
+
+      if (isPermissionDenied) {
+        try {
+          if (typeof window !== 'undefined') {
+            const syncRes = await fetch('/api/workshops', {
+              cache: 'no-store',
+            });
+            if (syncRes.ok) {
+              const syncJson = await syncRes.json();
+              if (
+                Array.isArray(syncJson?.workshops) &&
+                syncJson.workshops.length > 0
+              ) {
+                const syncedRows = (
+                  syncJson.workshops as DbWorkshopAddress[]
+                ).map((row) => enrichWorkshopWithStorageImage(row, bucketMap));
+                const filtered = includeInactive
+                  ? syncedRows
+                  : syncedRows.filter((w) => w.is_active !== false);
+                if (!includeInactive && filtered.length > 0) {
+                  workshopsCache = {
+                    data: filtered,
+                    timestamp: Date.now(),
+                  };
+                }
+                return {
+                  data: filtered,
+                  error: null,
+                  rlsBlocked: false,
+                  isLiveDb: true,
+                };
+              }
+            }
+          }
+        } catch {
+          // Proceed to return rlsBlocked state
+        }
+
+        return {
+          data: [],
+          error: null,
+          rlsBlocked: true,
+          isLiveDb: false,
+        };
+      }
+
+      return {
+        data: workshopsCache?.data ?? [],
+        error: error?.message || 'Unable to load workshop records',
+        rlsBlocked: false,
+        isLiveDb: false,
+      };
+    } catch (err) {
+      return {
+        data: workshopsCache?.data ?? [],
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Unable to load workshop records',
+        rlsBlocked: false,
+        isLiveDb: false,
+      };
+    } finally {
+      if (!includeInactive) {
+        inflightWorkshopsPromise = null;
+      }
+    }
+  };
+
+  if (!includeInactive) {
+    inflightWorkshopsPromise = runFetch();
+    return inflightWorkshopsPromise;
+  }
+
+  return runFetch();
+}
+

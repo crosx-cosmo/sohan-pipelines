@@ -304,6 +304,56 @@ svg {
   transform: translateY(0);
 }
 
+/* Refractive Glass Distortion Band for Rising Google Pixel Wave */
+.pixel-wave-refraction {
+  backdrop-filter: blur(2.2px) brightness(1.06) saturate(1.12);
+  -webkit-backdrop-filter: blur(2.2px) brightness(1.06) saturate(1.12);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.85) 38%,
+    rgba(0, 0, 0, 0.85) 62%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.85) 38%,
+    rgba(0, 0, 0, 0.85) 62%,
+    transparent 100%
+  );
+}
+
+/* Tactile CTA Button Micro-Physics + Subtle Diagonal Light-Sheen Sweep */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    112deg,
+    transparent 24%,
+    rgba(255, 255, 255, 0.18) 48%,
+    rgba(186, 230, 253, 0.24) 52%,
+    transparent 76%
+  );
+  transform: translateX(-135%) skewX(-16deg);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.btn-sheen:hover::after,
+.btn-sheen:focus-visible::after {
+  transform: translateX(135%) skewX(-16deg);
+}
+
 /* Calibrated Glass Panels with High Optical Contrast */
 .glass {
   background-color: hsla(var(--background), 0.82);

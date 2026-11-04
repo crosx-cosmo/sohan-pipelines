@@ -13,9 +13,13 @@ import { Button } from '@/components/ui/button';
 import { businessInfo } from '@/lib/business-info';
 import {
   fetchLiveServiceAreas,
+  fetchLiveWorkshops,
   getCachedServiceAreas,
+  getCachedWorkshops,
   type DbServiceArea,
+  type DbWorkshopAddress,
 } from '@/lib/supabase-data';
+import { formatWorkshopShortAddress } from '@/lib/workshop-mapping';
 
 interface HubNode {
   id: string;
@@ -65,31 +69,43 @@ export function DispatchHubMap() {
   const [areas, setAreas] = React.useState<DbServiceArea[]>(
     () => getCachedServiceAreas() ?? []
   );
+  const [workshops, setWorkshops] = React.useState<DbWorkshopAddress[]>(
+    () => getCachedWorkshops() ?? []
+  );
   const [activeNodeId, setActiveNodeId] = React.useState<string>('');
 
   React.useEffect(() => {
     let active = true;
-    fetchLiveServiceAreas().then(({ data }) => {
-      if (!active) return;
-      setAreas(data);
-      if (data.length > 0) {
-        setActiveNodeId((prev) => prev || data[0].id || data[0].locality);
+    Promise.all([fetchLiveServiceAreas(), fetchLiveWorkshops()]).then(
+      ([{ data }, workshopsRes]) => {
+        if (!active) return;
+        setAreas(data);
+        if (!workshopsRes.error) {
+          setWorkshops(workshopsRes.data || []);
+        }
+        if (data.length > 0) {
+          setActiveNodeId((prev) => prev || data[0].id || data[0].locality);
+        }
       }
-    });
+    );
     return () => {
       active = false;
     };
   }, []);
 
+  const primaryWorkshop = workshops[0] ?? null;
+
   const hqNode: HubNode = {
-    id: 'hq-keshrambha',
-    locality: 'Keshrambha',
-    name: 'Bahardaltitia, PO - Keshrambha, PS - Dantan',
-    district: businessInfo.district,
-    pincode: businessInfo.pincode,
-    type: 'Headquarters & Spare Parts Counter',
+    id: primaryWorkshop?.id || 'hq-keshrambha',
+    locality: primaryWorkshop?.city || 'Keshrambha',
+    name: primaryWorkshop
+      ? formatWorkshopShortAddress(primaryWorkshop)
+      : 'Bahardaltitia, PO - Keshrambha, PS - Dantan',
+    district: primaryWorkshop?.district || businessInfo.district,
+    pincode: primaryWorkshop?.postal_code || businessInfo.pincode,
+    type: primaryWorkshop?.name || 'Headquarters & Spare Parts Counter',
     eta: 'Base Workshop Origin',
-    status: `Active · PIN ${businessInfo.pincode}`,
+    status: `Active · PIN ${primaryWorkshop?.postal_code || businessInfo.pincode}`,
     isHQ: true,
     x: 170,
     y: 220,
@@ -146,8 +162,8 @@ export function DispatchHubMap() {
             </h3>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Live route coverage from {businessInfo.addressShort} (PIN{' '}
-            {businessInfo.pincode}) to {areas.length} active service{' '}
+            Live route coverage from {hqNode.name} (PIN {hqNode.pincode}) to{' '}
+            {areas.length} active service{' '}
             {areas.length === 1 ? 'area' : 'areas'}
           </p>
         </div>
@@ -155,7 +171,9 @@ export function DispatchHubMap() {
         <div className="flex items-center gap-2 text-xs font-mono">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/25">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>HQ: Bahardaltitia · PIN {businessInfo.pincode}</span>
+            <span>
+              HQ: {hqNode.locality} · PIN {hqNode.pincode}
+            </span>
           </span>
         </div>
       </div>

@@ -26,13 +26,24 @@ import { CustomSelect } from '@/components/ui/custom-select';
 import { businessInfo } from '@/lib/business-info';
 import {
   fetchLiveServiceAreas,
+  fetchLiveWorkshops,
   getCachedServiceAreas,
+  getCachedWorkshops,
   type DbServiceArea,
+  type DbWorkshopAddress,
 } from '@/lib/supabase-data';
+import {
+  formatWorkshopFullAddress,
+  formatWorkshopShortAddress,
+} from '@/lib/workshop-mapping';
+import { VisitingCardModal } from '@/components/visiting-card-modal';
 
 export function ContactSection() {
   const [areas, setAreas] = React.useState<DbServiceArea[]>(
     () => getCachedServiceAreas() ?? []
+  );
+  const [workshops, setWorkshops] = React.useState<DbWorkshopAddress[]>(
+    () => getCachedWorkshops() ?? []
   );
   const [loading, setLoading] = React.useState(() => !getCachedServiceAreas());
   const [error, setError] = React.useState<string | null>(null);
@@ -44,7 +55,13 @@ export function ContactSection() {
   const loadAreas = React.useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await fetchLiveServiceAreas({ forceRefresh });
+    const [{ data, error: err }, workshopsRes] = await Promise.all([
+      fetchLiveServiceAreas({ forceRefresh }),
+      fetchLiveWorkshops({ forceRefresh }),
+    ]);
+    if (!workshopsRes.error) {
+      setWorkshops(workshopsRes.data || []);
+    }
     if (err) {
       setError(err);
       setAreas([]);
@@ -65,29 +82,43 @@ export function ContactSection() {
 
   React.useEffect(() => {
     let active = true;
-    fetchLiveServiceAreas().then(({ data, error: err }) => {
-      if (!active) return;
-      if (err) {
-        setError(err);
-        setAreas([]);
-      } else {
-        setAreas(data);
-        if (data.length > 0) {
-          setSelectedLocality((prev) =>
-            prev && data.some((a) => a.locality === prev)
-              ? prev
-              : data[0].locality
-          );
-        } else {
-          setSelectedLocality('');
+    Promise.all([fetchLiveServiceAreas(), fetchLiveWorkshops()]).then(
+      ([{ data, error: err }, workshopsRes]) => {
+        if (!active) return;
+        if (!workshopsRes.error) {
+          setWorkshops(workshopsRes.data || []);
         }
+        if (err) {
+          setError(err);
+          setAreas([]);
+        } else {
+          setAreas(data);
+          if (data.length > 0) {
+            setSelectedLocality((prev) =>
+              prev && data.some((a) => a.locality === prev)
+                ? prev
+                : data[0].locality
+            );
+          } else {
+            setSelectedLocality('');
+          }
+        }
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
     return () => {
       active = false;
     };
   }, []);
+
+  const primaryWorkshop = workshops[0] ?? null;
+  const workshopFullAddress = primaryWorkshop
+    ? formatWorkshopFullAddress(primaryWorkshop)
+    : businessInfo.address;
+  const workshopShortAddress = primaryWorkshop
+    ? formatWorkshopShortAddress(primaryWorkshop)
+    : businessInfo.addressShort;
+  const workshopPin = primaryWorkshop?.postal_code || businessInfo.pincode;
 
   const districts = React.useMemo(() => {
     const unique = Array.from(
@@ -256,10 +287,11 @@ export function ContactSection() {
                   </span>
                   <div className="min-w-0 space-y-1">
                     <p className="text-xs text-muted-foreground font-medium">
-                      Head Workshop &amp; Spare Parts Counter
+                      {primaryWorkshop?.name ||
+                        'Head Workshop & Spare Parts Counter'}
                     </p>
                     <p className="font-display font-bold text-sm sm:text-base text-foreground leading-snug">
-                      {businessInfo.address}
+                      {workshopFullAddress}
                     </p>
                   </div>
                 </div>
@@ -268,7 +300,7 @@ export function ContactSection() {
                   variant="ghost"
                   size="icon"
                   onClick={() =>
-                    handleCopy(businessInfo.address, 'Contact Address')
+                    handleCopy(workshopFullAddress, 'Workshop Address')
                   }
                   className="h-9 w-9 text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Copy address"
@@ -276,6 +308,17 @@ export function ContactSection() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
+
+              {/* Digital Visiting Card & Save Contact (.vcf) */}
+              <VisitingCardModal
+                workshopName={
+                  primaryWorkshop?.name ||
+                  'Head Workshop & Spare Parts Counter'
+                }
+                workshopAddress={workshopFullAddress}
+                workshopPin={workshopPin}
+                triggerVariant="contact"
+              />
             </div>
 
             {/* Operating Hours Block */}
@@ -541,8 +584,7 @@ export function ContactSection() {
                             Base Workshop &amp; Dispatch Origin
                           </span>
                           <p className="font-medium text-foreground leading-snug">
-                            {businessInfo.addressShort}, Pin Code : -{' '}
-                            {businessInfo.pincode}
+                            {workshopShortAddress}, Pin Code : - {workshopPin}
                           </p>
                         </div>
                       </div>

@@ -12,23 +12,35 @@ import {
   CheckCircle2,
   Phone,
   X,
-  ShieldCheck,
-  Clock,
   Copy,
   Check,
   ExternalLink,
   Building2,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { businessInfo } from '@/lib/business-info';
+import { supabase } from '@/lib/supabase';
 import { ServiceAreaCardMedia } from '@/components/service-area-card-media';
 import {
+  WorkshopCard,
+  WorkshopAdminModal,
+  WorkshopRlsSyncCard,
+} from '@/components/workshop-card';
+import {
   fetchLiveServiceAreas,
+  fetchLiveWorkshops,
   getCachedServiceAreas,
+  getCachedWorkshops,
   type LiveServiceArea,
+  type DbWorkshopAddress,
 } from '@/lib/supabase-data';
+import {
+  formatWorkshopFullAddress,
+  formatWorkshopShortAddress,
+} from '@/lib/workshop-mapping';
 import { luxuryEasing } from '@/lib/motion';
 import { toast } from 'sonner';
 
@@ -47,41 +59,80 @@ export function HomeAreasPreview() {
   const [areas, setAreas] = React.useState<LiveServiceArea[]>(
     () => getCachedServiceAreas() ?? []
   );
-  const [loading, setLoading] = React.useState(() => !getCachedServiceAreas());
+  const [workshops, setWorkshops] = React.useState<DbWorkshopAddress[]>(
+    () => getCachedWorkshops() ?? []
+  );
+  const [workshopRlsBlocked, setWorkshopRlsBlocked] = React.useState(false);
+  const [loading, setLoading] = React.useState(
+    () => !getCachedServiceAreas() && !getCachedWorkshops()
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [copiedAddress, setCopiedAddress] = React.useState(false);
 
-  const loadAreas = React.useCallback(async () => {
-    setLoading(true);
+  // Admin session for managing Workshop records
+  const [activeUserEmail, setActiveUserEmail] = React.useState<string | null>(
+    null
+  );
+  const [showWorkshopModal, setShowWorkshopModal] = React.useState(false);
+  const [editingWorkshop, setEditingWorkshop] =
+    React.useState<DbWorkshopAddress | null>(null);
+
+  const loadData = React.useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     setError(null);
-    const res = await fetchLiveServiceAreas({ forceRefresh: true });
-    if (res.error) {
-      setError(res.error);
+    const [areasRes, workshopsRes] = await Promise.all([
+      fetchLiveServiceAreas({ forceRefresh: true }),
+      fetchLiveWorkshops({ forceRefresh: true }),
+    ]);
+    setWorkshopRlsBlocked(Boolean(workshopsRes.rlsBlocked));
+    if (areasRes.error && workshopsRes.error) {
+      setError(areasRes.error);
     } else {
-      setAreas(res.data || []);
+      setAreas(areasRes.data || []);
+      setWorkshops(workshopsRes.data || []);
     }
     setLoading(false);
   }, []);
 
   React.useEffect(() => {
     let active = true;
-    fetchLiveServiceAreas().then((res) => {
+
+    supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      if (res.error) {
-        setError(res.error);
-      } else {
-        setAreas(res.data || []);
-      }
-      setLoading(false);
+      setActiveUserEmail(data.session?.user?.email ?? null);
     });
 
+    Promise.all([fetchLiveServiceAreas(), fetchLiveWorkshops()]).then(
+      ([areasRes, workshopsRes]) => {
+        if (!active) return;
+        setWorkshopRlsBlocked(Boolean(workshopsRes.rlsBlocked));
+        if (!areasRes.error) {
+          setAreas(areasRes.data || []);
+        }
+        if (!workshopsRes.error) {
+          setWorkshops(workshopsRes.data || []);
+        }
+        setLoading(false);
+      }
+    );
+
+    const workshopChannel = supabase
+      .channel('public-workshop-addresses-home')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_addresses' },
+        () => {
+          if (active) {
+            loadData(false);
+          }
+        }
+      )
+      .subscribe();
+
     const handleVisibilityRefresh = () => {
-      if (document.visibilityState === 'visible') {
-        fetchLiveServiceAreas({ forceRefresh: true }).then((res) => {
-          if (!active || res.error) return;
-          setAreas(res.data || []);
-        });
+      if (document.visibilityState === 'visible' && active) {
+        loadData(false);
       }
     };
 
@@ -92,10 +143,39 @@ export function HomeAreasPreview() {
       active = false;
       window.removeEventListener('focus', handleVisibilityRefresh);
       document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      supabase.removeChannel(workshopChannel);
     };
-  }, []);
+  }, [loadData]);
 
-  const previewAreas = React.useMemo(() => areas.slice(0, 2), [areas]);
+  const primaryWorkshop = workshops[0] ?? null;
+
+  const displayWorkshopName =
+    primaryWorkshop?.name ||
+    `${businessInfo.name} — Central Workshop & Hardware Counter`;
+  const displayFullAddress = primaryWorkshop
+    ? formatWorkshopFullAddress(primaryWorkshop)
+    : businessInfo.address;
+  const displayShortAddress = primaryWorkshop
+    ? formatWorkshopShortAddress(primaryWorkshop)
+    : businessInfo.addressShort;
+  const displayPincode = primaryWorkshop?.postal_code || businessInfo.pincode;
+  const displayCity = primaryWorkshop?.city || 'Bahardaltitia';
+  const displayAddressLine1 =
+    primaryWorkshop?.address_line_1 || 'Vill : - Bahardaltitia, PO : - Keshrambha';
+  const displayAddressLine2 = primaryWorkshop
+    ? primaryWorkshop.address_line_2 || '—'
+    : 'PS : - Dantan';
+  const displayLandmark = primaryWorkshop
+    ? primaryWorkshop.landmark || '—'
+    : 'Keshrambha';
+  const displayDistrictState = primaryWorkshop
+    ? `${primaryWorkshop.district}, ${primaryWorkshop.state}`
+    : `${businessInfo.district}, ${businessInfo.state}`;
+
+  const previewAreas = React.useMemo(
+    () => areas.slice(0, workshops.length > 0 ? 1 : 2),
+    [areas, workshops.length]
+  );
 
   const matchedAreas = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -147,15 +227,15 @@ export function HomeAreasPreview() {
   const handleCopyAddress = async () => {
     try {
       await navigator.clipboard.writeText(
-        `${businessInfo.name} — ${businessInfo.address} (Phone: ${businessInfo.phoneDisplay})`
+        `${displayWorkshopName} — ${displayFullAddress} (Phone: ${businessInfo.phoneDisplay})`
       );
       setCopiedAddress(true);
       toast.success('Official Workshop Address Copied', {
-        description: businessInfo.address,
+        description: displayFullAddress,
       });
       setTimeout(() => setCopiedAddress(false), 2500);
     } catch {
-      toast.info(businessInfo.address);
+      toast.info(displayFullAddress);
     }
   };
 
@@ -184,7 +264,7 @@ export function HomeAreasPreview() {
             <p className="mt-3 text-sm sm:text-base text-[#475569] dark:text-muted-foreground leading-relaxed text-pretty">
               Operating from our registered headquarters at{' '}
               <strong className="text-[#071936] dark:text-foreground font-semibold">
-                {businessInfo.addressShort} (PIN {businessInfo.pincode})
+                {displayShortAddress} (PIN {displayPincode})
               </strong>
               , our mobile plumbing engineers serve verified localities and
               surrounding blocks across Paschim &amp; Purba Medinipur.
@@ -192,6 +272,21 @@ export function HomeAreasPreview() {
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto shrink-0">
+            {activeUserEmail && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingWorkshop(null);
+                  setShowWorkshopModal(true);
+                }}
+                className="font-semibold text-xs h-11 px-4 rounded-xl bg-white dark:bg-card border-[#003E9E]/30 text-[#003E9E] dark:text-[#60A5FA] hover:border-[#003E9E] gap-1.5"
+              >
+                <Settings2 className="h-3.5 w-3.5 shrink-0" />
+                <span>Manage Workshops ({workshops.length})</span>
+              </Button>
+            )}
             <Button
               asChild
               variant="outline"
@@ -244,16 +339,16 @@ export function HomeAreasPreview() {
                       ·
                     </span>
                     <span className="text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
-                      PIN {businessInfo.pincode}
+                      PIN {displayPincode}
                     </span>
                   </div>
 
                   <h3 className="font-display text-base sm:text-xl font-bold text-[#071936] dark:text-foreground leading-snug break-words">
-                    {businessInfo.name} — Central Workshop &amp; Hardware Counter
+                    {displayWorkshopName}
                   </h3>
 
                   <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground font-mono leading-relaxed break-words">
-                    {businessInfo.address}
+                    {displayFullAddress}
                   </p>
                 </div>
               </div>
@@ -287,7 +382,7 @@ export function HomeAreasPreview() {
                   className="h-10 px-3 sm:px-4 rounded-xl border-[#DCE5F2] dark:border-border bg-white dark:bg-card hover:border-[#003E9E] text-[#003E9E] dark:text-[#60A5FA] text-xs font-semibold gap-1.5 justify-center whitespace-nowrap"
                 >
                   <a
-                    href="https://maps.app.goo.gl/A5zohbs3fQ9YFK5z5"
+                    href={businessInfo.googleMapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -298,32 +393,41 @@ export function HomeAreasPreview() {
               </div>
             </div>
 
-            {/* 6-Tile Structured Address Breakdown Grid */}
+            {/* 6-Tile Structured Address Breakdown Grid (1-to-1 with Admin Panel) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
               <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
-                  Village / Locality
+                  Address Line 1
                 </span>
                 <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
-                  Bahardaltitia
+                  {displayAddressLine1}
                 </span>
               </div>
 
               <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
-                  Post Office (PO)
+                  Address Line 2
                 </span>
                 <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
-                  Keshrambha
+                  {displayAddressLine2}
                 </span>
               </div>
 
               <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
-                  Police Station (PS)
+                  Landmark
                 </span>
                 <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
-                  Dantan
+                  {displayLandmark}
+                </span>
+              </div>
+
+              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
+                  City / Locality
+                </span>
+                <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
+                  {displayCity}
                 </span>
               </div>
 
@@ -332,7 +436,7 @@ export function HomeAreasPreview() {
                   District &amp; State
                 </span>
                 <span className="font-display font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block truncate">
-                  West Medinipur, WB
+                  {displayDistrictState}
                 </span>
               </div>
 
@@ -341,16 +445,7 @@ export function HomeAreasPreview() {
                   Postal PIN Code
                 </span>
                 <span className="font-mono font-extrabold text-sm sm:text-base text-[#003E9E] dark:text-[#60A5FA] mt-0.5 block tabular-nums">
-                  {businessInfo.pincode}
-                </span>
-              </div>
-
-              <div className="rounded-xl bg-[#F6F9FC] dark:bg-muted/25 border border-[#DCE5F2] dark:border-border p-3 sm:p-3.5 min-w-0">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#475569] dark:text-muted-foreground block truncate">
-                  Mon–Sat Hours
-                </span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-[#071936] dark:text-foreground mt-1 block tabular-nums truncate">
-                  {businessInfo.hours}
+                  {displayPincode}
                 </span>
               </div>
             </div>
@@ -513,7 +608,7 @@ export function HomeAreasPreview() {
                 key={n}
                 className="rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card p-6 animate-pulse space-y-5"
               >
-                <div className="h-44 w-full bg-slate-100 dark:bg-slate-800/70 rounded-xl" />
+                <div className="h-48 w-full bg-slate-100 dark:bg-slate-800/70 rounded-xl" />
                 <div className="h-6 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[1, 2].map((k) => (
@@ -533,11 +628,11 @@ export function HomeAreasPreview() {
           <div className="rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card p-8 text-center max-w-xl mx-auto space-y-4">
             <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
             <h3 className="font-display text-base font-bold text-[#071936] dark:text-foreground">
-              Unable to Load Live Service Areas
+              Unable to Load Live Workshop &amp; Service Areas
             </h3>
             <p className="text-xs text-[#475569]">{error}</p>
             <Button
-              onClick={loadAreas}
+              onClick={() => loadData(true)}
               size="sm"
               variant="outline"
               className="rounded-xl text-xs font-semibold"
@@ -548,9 +643,30 @@ export function HomeAreasPreview() {
           </div>
         )}
 
-        {/* Concise 2-Card Regional Coverage Showcase with Strict 1-to-1 Image Mapping */}
-        {!loading && !error && areas.length > 0 && (
+        {/* RLS Setup & Admin Sync Card when `anon` SELECT on `public.workshop_addresses` is pending */}
+        {!loading && workshopRlsBlocked && workshops.length === 0 && (
+          <WorkshopRlsSyncCard onSynced={() => loadData(false)} />
+        )}
+
+        {/* Live Workshop Cards + Verified Regional Coverage Cards */}
+        {!loading && !error && (workshops.length > 0 || areas.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-7 lg:gap-8 items-stretch">
+            {/* Active Workshop Cards from `public.workshop_addresses` & `Plumbing Assets/workshop` */}
+            {workshops.map((workshop, wIdx) => (
+              <WorkshopCard
+                key={workshop.id || `ws-${wIdx}`}
+                workshop={workshop}
+                index={wIdx}
+                priority={wIdx === 0}
+                canManage={Boolean(activeUserEmail)}
+                onEdit={(w) => {
+                  setEditingWorkshop(w);
+                  setShowWorkshopModal(true);
+                }}
+              />
+            ))}
+
+            {/* Verified Regional Locality Coverage Cards */}
             {previewAreas.map((area, areaIdx) => (
               <motion.div
                 key={area.id || `${area.locality}-${areaIdx}`}
@@ -560,7 +676,7 @@ export function HomeAreasPreview() {
                 whileHover={{ y: -4 }}
                 transition={{
                   duration: 0.38,
-                  delay: areaIdx * 0.08,
+                  delay: (workshops.length + areaIdx) * 0.08,
                   ease: luxuryEasing,
                 }}
                 style={{ willChange: 'transform' }}
@@ -572,7 +688,6 @@ export function HomeAreasPreview() {
                   className="group h-full p-0 gap-0 rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card shadow-crisp-sm hover:shadow-crisp-lg hover:border-[#003E9E]/60 transition-all duration-300 flex flex-col justify-between overflow-hidden"
                 >
                   <div>
-                    {/* 16:10 Locality Coverage Visual Stage strictly 1-to-1 from spare-part-images/catalog-service-areas */}
                     <ServiceAreaCardMedia
                       title={area.locality}
                       subtitle={
@@ -590,7 +705,7 @@ export function HomeAreasPreview() {
                       alt={`${area.locality}${area.pincode ? ` (PIN ${area.pincode})` : ''}, ${formatDistrictHeading(area.district)} — Plumbing & Pipeline Service Area by Sohan Pipeline's`}
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 92vw, (max-width: 1280px) 48vw, 600px"
                       variant="area"
-                      priority={areaIdx === 0}
+                      priority={areaIdx === 0 && workshops.length === 0}
                       objectPosition="50% 48%"
                     />
                   </div>
@@ -659,99 +774,20 @@ export function HomeAreasPreview() {
                 </Card>
               </motion.div>
             ))}
-
-            {/* Base Workshop & Regional Dispatch HQ Card — Dedicated Branded Placeholder Only (imageUrl={null}) */}
-            {previewAreas.length === 1 && (
-              <motion.div
-                initial={{ opacity: 0, y: 18 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-30px' }}
-                whileHover={{ y: -4 }}
-                transition={{ duration: 0.38, delay: 0.08, ease: luxuryEasing }}
-                style={{ willChange: 'transform' }}
-                className="h-full flex flex-col"
-              >
-                <Card
-                  itemScope
-                  itemType="https://schema.org/Place"
-                  className="group h-full p-0 gap-0 rounded-2xl border border-[#DCE5F2] dark:border-border bg-white dark:bg-card shadow-crisp-sm hover:shadow-crisp-lg hover:border-[#003E9E]/60 transition-all duration-300 flex flex-col justify-between overflow-hidden"
-                >
-                  {/* Dedicated Base Workshop HQ Placeholder — Never reuses any locality or service image */}
-                  <ServiceAreaCardMedia
-                    title="Base Workshop & Regional Dispatch HQ"
-                    subtitle={businessInfo.addressShort}
-                    badgeLeft={`HQ · PIN ${businessInfo.pincode}`}
-                    badgeRight="Mobile Field Units"
-                    imageUrl={null}
-                    variant="workshop-hq"
-                    objectPosition="50% 48%"
-                  />
-
-                  <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-5">
-                    <div className="space-y-4">
-                      <p className="text-xs sm:text-sm text-[#475569] dark:text-muted-foreground leading-relaxed">
-                        Central engineering depot and genuine spare parts
-                        counter serving residential and commercial pipelines
-                        across Paschim Medinipur and Purba Medinipur:
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/30 p-3.5 space-y-1">
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <span className="font-bold text-[#071936] dark:text-foreground inline-flex items-center gap-1.5">
-                              <ShieldCheck className="h-4 w-4 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
-                              <span>Mobile Field Units</span>
-                            </span>
-                            <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-bold">
-                              On-Call
-                            </span>
-                          </div>
-                          <p className="text-xs text-[#475569] dark:text-muted-foreground">
-                            Scheduled &amp; urgent dispatch across surrounding
-                            blocks
-                          </p>
-                        </div>
-
-                        <div className="rounded-xl border border-[#DCE5F2] dark:border-border bg-[#F6F9FC] dark:bg-muted/30 p-3.5 space-y-1">
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <span className="font-bold text-[#071936] dark:text-foreground inline-flex items-center gap-1.5">
-                              <Clock className="h-4 w-4 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
-                              <span>Operating Hours</span>
-                            </span>
-                            <span className="font-mono text-[11px] text-[#475569] font-semibold">
-                              Mon–Sat
-                            </span>
-                          </div>
-                          <p className="text-xs text-[#071936] dark:text-foreground font-mono font-bold tabular-nums">
-                            {businessInfo.hours}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-[#DCE5F2] dark:border-border flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <a
-                        href={`tel:${businessInfo.phone}`}
-                        className="font-mono font-bold text-[#071936] dark:text-foreground hover:text-[#003E9E] transition-colors inline-flex items-center gap-1.5 tabular-nums"
-                      >
-                        <Phone className="h-3.5 w-3.5 text-[#003E9E] dark:text-[#60A5FA] shrink-0" />
-                        <span>{businessInfo.phoneDisplay}</span>
-                      </a>
-                      <Link
-                        href="/book"
-                        className="font-bold text-[#003E9E] dark:text-[#60A5FA] hover:underline inline-flex items-center gap-1 whitespace-nowrap"
-                      >
-                        <span>Schedule Technician Visit</span>
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
           </div>
         )}
       </div>
+
+      {/* Admin Workshop Manager Modal */}
+      <WorkshopAdminModal
+        open={showWorkshopModal}
+        onClose={() => {
+          setShowWorkshopModal(false);
+          setEditingWorkshop(null);
+        }}
+        onSaved={() => loadData(false)}
+        initialEditingWorkshop={editingWorkshop}
+      />
     </section>
   );
 }

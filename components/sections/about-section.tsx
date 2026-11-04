@@ -5,13 +5,20 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Award, Users, Clock, Wrench, Shield, Heart, Star, ChevronDown, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { businessInfo } from '@/lib/business-info';
 
 const stats = [
-  { icon: Users, value: '500+', label: 'Happy Customers' },
-  { icon: Wrench, value: '12+', label: 'Service Types' },
-  { icon: Star, value: `${businessInfo.rating}`, label: 'Customer Rating' },
-  { icon: Award, value: `${new Date().getFullYear() - businessInfo.established}+`, label: 'Years Experience' },
+  { icon: Users, numericValue: 500, suffix: '+', decimals: 0, label: 'Happy Customers' },
+  { icon: Wrench, numericValue: 12, suffix: '+', decimals: 0, label: 'Service Types' },
+  { icon: Star, numericValue: Number(businessInfo.rating) || 5, suffix: '', decimals: 1, label: 'Customer Rating' },
+  {
+    icon: Award,
+    numericValue: new Date().getFullYear() - businessInfo.established,
+    suffix: '+',
+    decimals: 0,
+    label: 'Years Experience',
+  },
 ];
 
 const values = [
@@ -128,7 +135,11 @@ export function AboutSection() {
                   <stat.icon className="h-7 w-7" />
                 </span>
                 <p className="relative font-display text-3xl sm:text-4xl font-bold tracking-tight tabular-nums font-mono">
-                  {stat.value}
+                  <AnimatedCounter
+                    value={stat.numericValue}
+                    suffix={stat.suffix}
+                    decimals={stat.decimals}
+                  />
                 </p>
                 <p className="relative text-sm text-muted-foreground mt-1">{stat.label}</p>
               </motion.div>

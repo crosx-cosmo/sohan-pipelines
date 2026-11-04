@@ -13,15 +13,24 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { businessInfo } from '@/lib/business-info';
+import { supabase } from '@/lib/supabase';
 import {
   fetchLiveServices,
   getCachedServices,
   fetchLiveServiceAreas,
   getCachedServiceAreas,
+  fetchLiveWorkshops,
+  getCachedWorkshops,
   type DbService,
   type DbServiceArea,
+  type DbWorkshopAddress,
 } from '@/lib/supabase-data';
+import {
+  formatWorkshopFullAddress,
+  formatWorkshopShortAddress,
+} from '@/lib/workshop-mapping';
 import { BrandLogo } from '@/components/brand-logo';
+import { VisitingCardModal } from '@/components/visiting-card-modal';
 
 const companyLinks = [
   { label: 'About Our Contractors', href: '/about' },
@@ -48,6 +57,9 @@ export function SiteFooter() {
   const [liveAreas, setLiveAreas] = React.useState<DbServiceArea[]>(
     () => getCachedServiceAreas() ?? []
   );
+  const [liveWorkshops, setLiveWorkshops] = React.useState<DbWorkshopAddress[]>(
+    () => getCachedWorkshops() ?? []
+  );
 
   React.useEffect(() => {
     let active = true;
@@ -61,10 +73,41 @@ export function SiteFooter() {
         setLiveAreas(data);
       }
     });
+    fetchLiveWorkshops().then(({ data }) => {
+      if (active) {
+        setLiveWorkshops(data || []);
+      }
+    });
+
+    const workshopChannel = supabase
+      .channel('public-workshop-addresses-footer')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_addresses' },
+        () => {
+          fetchLiveWorkshops({ forceRefresh: true }).then(({ data }) => {
+            if (active) {
+              setLiveWorkshops(data || []);
+            }
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      supabase.removeChannel(workshopChannel);
     };
   }, []);
+
+  const primaryWorkshop = liveWorkshops[0] ?? null;
+  const footerFullAddress = primaryWorkshop
+    ? formatWorkshopFullAddress(primaryWorkshop)
+    : businessInfo.address;
+  const footerShortAddress = primaryWorkshop
+    ? formatWorkshopShortAddress(primaryWorkshop)
+    : 'Bahardaltitia, Keshrambha, Dantan';
+  const footerPincode = primaryWorkshop?.postal_code || businessInfo.pincode;
 
   const footerSections = React.useMemo(
     () => [
@@ -185,11 +228,20 @@ export function SiteFooter() {
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted shrink-0 mt-0.5">
                   <MapPin className="h-4 w-4 text-primary" />
                 </span>
-                <span className="leading-relaxed">{businessInfo.address}</span>
+                <span className="leading-relaxed">{footerFullAddress}</span>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-3">
+              <VisitingCardModal
+                workshopName={
+                  primaryWorkshop?.name ||
+                  'Base Workshop & Spare Parts Counter'
+                }
+                workshopAddress={footerFullAddress}
+                workshopPin={footerPincode}
+                triggerVariant="footer"
+              />
               <p className="text-[11px] text-muted-foreground">
                 Accepted Payment:{' '}
                 <strong className="text-foreground">
@@ -304,13 +356,13 @@ export function SiteFooter() {
               <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 mt-1.5 sm:mt-0" />
               <div className="text-[11px] leading-snug">
                 <span className="font-semibold text-foreground block sm:inline">
-                  Base Workshop:{' '}
+                  {primaryWorkshop?.name ? `${primaryWorkshop.name}: ` : 'Base Workshop: '}
                 </span>
                 <span className="text-muted-foreground">
-                  Bahardaltitia, Keshrambha, Dantan
+                  {footerShortAddress}
                 </span>{' '}
                 <span className="font-mono font-semibold text-primary">
-                  (PIN {businessInfo.pincode})
+                  (PIN {footerPincode})
                 </span>
               </div>
             </div>

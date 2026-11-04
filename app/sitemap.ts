@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://sohan-pipelines.netlify.app';
+  const baseUrl =
+    process.env.APP_URL || 'https://sohan-pipelines.netlify.app';
   const currentDate = new Date().toISOString().split('T')[0];
 
   const routes = [

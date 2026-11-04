@@ -11,3 +11,4 @@ export function PageLayout({ children }: { children: React.ReactNode }) {
     </main>
   );
 }
+

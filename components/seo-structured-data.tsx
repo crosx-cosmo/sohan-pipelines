@@ -1,6 +1,11 @@
 import * as React from 'react';
 import { businessInfo, faqs } from '@/lib/business-info';
-import { fetchLiveServices, fetchLiveServiceAreas } from '@/lib/supabase-data';
+import {
+  fetchLiveServices,
+  fetchLiveServiceAreas,
+  fetchLiveWorkshops,
+} from '@/lib/supabase-data';
+import { formatWorkshopFullAddress } from '@/lib/workshop-mapping';
 import { SITE_LOGO_URL } from '@/lib/site-logo';
 
 const CORE_COVERAGE_AREAS = [
@@ -22,21 +27,39 @@ const CORE_COVERAGE_AREAS = [
 
 export async function SeoStructuredData() {
   const baseUrl = process.env.APP_URL || 'https://sohan-pipelines.netlify.app';
-  const [{ data: liveServices }, { data: liveAreas }] = await Promise.all([
-    fetchLiveServices(),
-    fetchLiveServiceAreas(),
-  ]);
+  const [{ data: liveServices }, { data: liveAreas }, { data: liveWorkshops }] =
+    await Promise.all([
+      fetchLiveServices(),
+      fetchLiveServiceAreas(),
+      fetchLiveWorkshops(),
+    ]);
 
   const activeServices = Array.isArray(liveServices) ? liveServices : [];
   const activeAreas =
     Array.isArray(liveAreas) && liveAreas.length > 0
       ? liveAreas.map((a) => a.locality).filter(Boolean)
       : CORE_COVERAGE_AREAS;
+  const primaryWorkshop =
+    Array.isArray(liveWorkshops) && liveWorkshops.length > 0
+      ? liveWorkshops[0]
+      : null;
 
   const minPrice =
     activeServices.length > 0
       ? Math.min(...activeServices.map((s) => Number(s.price) || 0).filter((p) => p > 0))
       : null;
+
+  const streetAddress = primaryWorkshop
+    ? formatWorkshopFullAddress(primaryWorkshop)
+    : businessInfo.address;
+  const addressLocality = primaryWorkshop?.city
+    ? [primaryWorkshop.city, primaryWorkshop.district].filter(Boolean).join(', ')
+    : 'Keshrambha, Dantan';
+  const addressRegion = primaryWorkshop?.state || 'West Bengal';
+  const postalCode = primaryWorkshop?.pin_code || businessInfo.pincode;
+  const schemaImages = primaryWorkshop?.photo_url
+    ? [SITE_LOGO_URL, primaryWorkshop.photo_url]
+    : [SITE_LOGO_URL];
 
   // 1. LocalBusiness / Plumber / Store Schema with Complete Coverage & OfferCatalog
   const localBusinessSchema = {
@@ -58,7 +81,7 @@ export async function SeoStructuredData() {
       width: 512,
       height: 512,
     },
-    image: [SITE_LOGO_URL],
+    image: schemaImages,
     description: businessInfo.description,
     telephone: businessInfo.phone,
     email: businessInfo.email,
@@ -71,10 +94,10 @@ export async function SeoStructuredData() {
     paymentAccepted: 'Cash, UPI, Google Pay, PhonePe, Paytm, Bank Transfer',
     address: {
       '@type': 'PostalAddress',
-      streetAddress: businessInfo.address,
-      addressLocality: 'Keshrambha, Dantan',
-      addressRegion: 'West Bengal',
-      postalCode: businessInfo.pincode,
+      streetAddress,
+      addressLocality,
+      addressRegion,
+      postalCode,
       addressCountry: 'IN',
     },
     geo: {

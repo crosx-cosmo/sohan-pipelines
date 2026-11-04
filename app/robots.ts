@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://sohan-pipelines.netlify.app';
+  const baseUrl =
+    process.env.APP_URL || 'https://sohan-pipelines.netlify.app';
 
   return {
     rules: [
